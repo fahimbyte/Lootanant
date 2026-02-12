@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🐜 Lootanant — Loot the King Ant!</title>
+<style>
+/* ── Reset & Base ── */
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:#1a1a2e;color:#e0e0e0;min-height:100vh;display:flex;flex-direction:column;align-items:center;overflow-x:hidden}
+h1,h2,h3{font-weight:700}
+button{cursor:pointer;border:none;border-radius:8px;padding:10px 22px;font-size:1rem;font-weight:600;transition:all .15s}
+button:hover{filter:brightness(1.15)}
+input{border:2px solid #444;border-radius:8px;padding:10px 14px;font-size:1rem;background:#16213e;color:#e0e0e0;outline:none}
+input:focus{border-color:#e94560}
+
+/* ── Screens ── */
+.screen{display:none;width:100%;max-width:960px;padding:20px}
+.screen.active{display:flex;flex-direction:column;align-items:center}
+
+/* ── Lobby ── */
+#lobby{margin-top:10vh}
+#lobby h1{font-size:2.4rem;color:#e94560;margin-bottom:4px}
+#lobby .subtitle{color:#888;margin-bottom:30px;font-size:1.05rem}
+.lobby-box{background:#16213e;border-radius:16px;padding:30px;width:100%;max-width:420px;display:flex;flex-direction:column;gap:14px;box-shadow:0 8px 30px rgba(0,0,0,.4)}
+.lobby-box label{font-size:.85rem;color:#aaa;margin-bottom:-8px}
+.btn-primary{background:#e94560;color:#fff}
+.btn-secondary{background:#0f3460;color:#fff}
+.btn-small{padding:8px 16px;font-size:.85rem}
+.or-divider{text-align:center;color:#555;font-size:.9rem;margin:4px 0}
+
+/* ── Waiting Room ── */
+#waitingRoom{margin-top:6vh}
+.room-code-display{font-size:2rem;letter-spacing:6px;color:#e94560;background:#16213e;padding:12px 28px;border-radius:12px;margin:10px 0 20px}
+.player-list-wait{list-style:none;display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin:16px 0}
+.player-list-wait li{background:#0f3460;padding:8px 18px;border-radius:20px;font-size:.95rem;display:flex;align-items:center;gap:8px}
+.player-list-wait li.cpu{opacity:.7;font-style:italic}
+.player-list-wait li input{padding:4px 8px;font-size:.85rem;width:110px;background:#1a1a2e;border:1px solid #e94560;border-radius:6px;color:#e0e0e0}
+.host-controls{display:flex;gap:10px;margin-top:10px;flex-wrap:wrap;justify-content:center}
+
+/* Game Settings */
+.game-settings{background:#16213e;border-radius:14px;padding:18px 22px;width:100%;max-width:420px;margin-top:14px;display:flex;flex-direction:column;gap:12px}
+.game-settings h3{color:#e94560;font-size:1rem;margin:0;text-align:center}
+.setting-row{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.setting-row label{font-size:.85rem;color:#ccc;white-space:nowrap}
+.setting-row input[type=number]{width:80px;padding:6px 10px;font-size:.95rem;text-align:center;background:#1a1a2e;border:2px solid #444;border-radius:8px;color:#e0e0e0}
+.setting-row input[type=number]:focus{border-color:#e94560}
+.setting-hint{font-size:.7rem;color:#666;text-align:center;margin-top:-4px}
+
+/* ── Game Board ── */
+#gameBoard{margin-top:2vh}
+.board-top{display:flex;justify-content:space-between;align-items:center;width:100%;margin-bottom:8px;flex-wrap:wrap;gap:8px}
+.room-badge{background:#0f3460;padding:6px 14px;border-radius:8px;font-size:.8rem}
+
+/* Deed Card */
+.deed-area{display:flex;flex-direction:column;align-items:center;margin:10px 0 14px}
+.deed-card{width:130px;height:185px;background:linear-gradient(135deg,#e94560,#c23152);border-radius:16px;display:flex;flex-direction:column;align-items:center;justify-content:center;box-shadow:0 6px 25px rgba(233,69,96,.5);position:relative;transition:transform .3s}
+.deed-card .value{font-size:3rem;font-weight:800;color:#fff}
+.deed-card .label{font-size:.7rem;color:rgba(255,255,255,.7);margin-top:4px}
+.deed-subtitle{margin-top:6px;font-size:.8rem;color:#888}
+
+/* Animations */
+@keyframes gavel{0%{transform:scale(1)}50%{transform:scale(1.15) rotate(-5deg)}100%{transform:scale(1)}}
+.deed-card.gavel{animation:gavel .5s ease}
+
+@keyframes flipIn{0%{transform:rotateY(90deg) scale(.8);opacity:0}100%{transform:rotateY(0) scale(1);opacity:1}}
+.deed-card.flip-in{animation:flipIn .5s ease}
+
+@keyframes bidWin{0%{box-shadow:0 0 0 0 rgba(255,215,0,.7)}50%{box-shadow:0 0 40px 15px rgba(255,215,0,.5)}100%{box-shadow:0 0 0 0 rgba(255,215,0,0)}}
+.bid-win-glow{animation:bidWin 1s ease}
+
+@keyframes netWorthPop{0%{transform:scale(1);color:#e0e0e0}40%{transform:scale(1.5);color:gold}100%{transform:scale(1);color:#e0e0e0}}
+.nw-pop{animation:netWorthPop .7s ease}
+
+@keyframes turnPulse{0%{border-color:#e94560;box-shadow:0 0 8px rgba(233,69,96,.4)}50%{border-color:#ff6b81;box-shadow:0 0 20px rgba(233,69,96,.7)}100%{border-color:#e94560;box-shadow:0 0 8px rgba(233,69,96,.4)}}
+.active-turn{animation:turnPulse 1.5s ease infinite}
+
+@keyframes slideDown{0%{transform:translateY(-30px);opacity:0}100%{transform:translateY(0);opacity:1}}
+.slide-down{animation:slideDown .4s ease}
+
+@keyframes fadeScale{0%{transform:scale(.8);opacity:0}100%{transform:scale(1);opacity:1}}
+.fade-scale{animation:fadeScale .4s ease}
+
+/* High Bid Display — compact strip below roundtable */
+.high-bid-bar{background:#16213e;border-radius:10px;padding:8px 16px;display:flex;justify-content:center;align-items:center;width:100%;max-width:500px;margin:0 auto 10px;gap:8px;flex-wrap:wrap}
+.high-bid-bar .amount{color:#e94560;font-size:1.1rem;font-weight:700}
+
+/* Roundtable */
+.roundtable{position:relative;width:100%;max-width:600px;min-height:400px;margin:0 auto 10px;display:flex;align-items:center;justify-content:center;padding:40px 0}
+.roundtable-center{width:160px;height:160px;border-radius:50%;background:radial-gradient(circle,#1e2a4a,#16213e);border:3px solid #0f3460;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:2;box-shadow:0 0 30px rgba(15,52,96,.5)}
+.roundtable-center .deed-card{width:80px;height:110px;border-radius:10px}
+.roundtable-center .deed-card .value{font-size:1.8rem}
+.roundtable-center .deed-card .label{font-size:.55rem}
+
+/* Player seats around table */
+.player-seat{position:absolute;text-align:center;transition:all .3s}
+.player-card{background:#16213e;border-radius:14px;padding:12px 14px;min-width:110px;text-align:center;position:relative;border:2px solid transparent;transition:all .3s}
+.player-card.passed{opacity:.45}
+.player-card.winner-card{border-color:gold!important;box-shadow:0 0 20px rgba(255,215,0,.6)!important}
+.player-card .avatar{font-size:1.6rem;margin-bottom:2px}
+.player-card .pname{font-weight:600;font-size:.85rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100px}
+.player-card .stat{font-size:.75rem;color:#aaa;margin-top:2px}
+.player-card .stat b{color:#e0e0e0}
+.player-card .you-badge{position:absolute;top:-8px;right:-8px;background:#e94560;color:#fff;font-size:.6rem;padding:2px 6px;border-radius:10px}
+.player-card .bid-badge{position:absolute;bottom:-8px;left:50%;transform:translateX(-50%);background:#0f3460;color:#e94560;font-size:.6rem;padding:2px 8px;border-radius:8px;white-space:nowrap}
+
+/* Ranking Area — compact horizontal strip above roundtable */
+.ranking-area{background:#16213e;border-radius:10px;padding:8px 14px;width:100%;max-width:600px;margin-bottom:10px;display:flex;align-items:center;gap:6px;justify-content:center;flex-wrap:wrap}
+.ranking-area h4{color:#e94560;font-size:.75rem;margin:0 6px 0 0;white-space:nowrap}
+.ranking-row{display:flex;align-items:center;gap:4px;padding:2px 8px;font-size:.78rem;background:#0f3460;border-radius:8px}
+.ranking-row .rank-medal{font-size:.9rem;width:auto}
+.ranking-row .rank-name{font-weight:600;white-space:nowrap}
+.ranking-row .rank-nw{color:#e94560;font-weight:700}
+
+/* Bid Console */
+.bid-console{background:#16213e;border-radius:14px;padding:14px 20px;width:100%;max-width:500px;display:flex;flex-direction:column;align-items:center;gap:10px}
+.bid-console .prompt{font-size:1rem;color:#ccc}
+.bid-buttons{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+.bid-buttons button{min-width:52px;padding:10px 14px;font-size:1rem;background:#0f3460;color:#fff;border-radius:10px}
+.bid-buttons button:hover{background:#e94560}
+.btn-pass{background:#333!important;color:#e94560!important;font-size:1.1rem;padding:12px 30px}
+.timer-bar{width:100%;height:6px;background:#333;border-radius:3px;overflow:hidden;margin-top:4px}
+.timer-bar .fill{height:100%;background:#e94560;transition:width .5s linear}
+
+/* Winner Overlay */
+#winnerOverlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:100;flex-direction:column;align-items:center;justify-content:center;text-align:center}
+#winnerOverlay.active{display:flex}
+#winnerOverlay .trophy{font-size:5rem;margin-bottom:10px;animation:trophyBounce 1s ease infinite alternate}
+@keyframes trophyBounce{0%{transform:scale(1) rotate(-5deg)}100%{transform:scale(1.1) rotate(5deg)}}
+#winnerOverlay h2{font-size:2.2rem;color:gold;margin-bottom:6px}
+#winnerOverlay p{color:#ccc;font-size:1.1rem;margin-bottom:20px}
+
+/* Round Banner */
+.round-banner{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) scale(0);background:rgba(15,52,96,.95);border:3px solid #e94560;border-radius:20px;padding:30px 50px;z-index:80;text-align:center;transition:transform .3s ease,opacity .3s ease;opacity:0;pointer-events:none}
+.round-banner.show{transform:translate(-50%,-50%) scale(1);opacity:1}
+.round-banner h2{color:#e94560;font-size:1.8rem;margin-bottom:6px}
+.round-banner p{color:#ccc;font-size:1rem}
+
+/* Turn Banner */
+.turn-banner{position:fixed;top:12%;left:50%;transform:translateX(-50%) translateY(-20px);background:rgba(233,69,96,.9);color:#fff;padding:10px 30px;border-radius:12px;font-size:1.1rem;font-weight:700;z-index:70;opacity:0;transition:all .3s ease;pointer-events:none}
+.turn-banner.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* Manual */
+#manual{margin-top:4vh;padding-bottom:40px}
+.manual-box{background:#16213e;border-radius:16px;padding:30px;max-width:700px;width:100%;line-height:1.7}
+.manual-box h2{color:#e94560;margin-bottom:14px;font-size:1.6rem}
+.manual-box h3{color:#e94560;margin:18px 0 6px;font-size:1.15rem}
+.manual-box ul{margin-left:20px}
+.manual-box li{margin-bottom:4px}
+.manual-box .icon{font-size:1.2rem;margin-right:4px}
+.back-link{margin-top:18px;color:#e94560;cursor:pointer;font-size:.95rem}
+.back-link:hover{text-decoration:underline}
+
+/* Toast */
+.toast{position:fixed;top:20px;left:50%;transform:translateX(-50%);background:#0f3460;color:#fff;padding:14px 28px;border-radius:12px;font-size:1rem;z-index:90;opacity:0;transition:opacity .3s;pointer-events:none;max-width:90vw;text-align:center}
+.toast.show{opacity:1}
+
+/* Mobile */
+@media(max-width:600px){
+  #gameBoard{padding:8px}
+  .board-top{margin-bottom:4px}
+  .ranking-area{padding:6px 8px;gap:4px;margin-bottom:6px}
+  .ranking-area h4{font-size:.65rem;margin-right:4px}
+  .ranking-row{font-size:.65rem;padding:2px 6px}
+  .ranking-row .rank-medal{font-size:.75rem}
+  .roundtable{min-height:300px;margin-bottom:6px;padding:30px 0}
+  .roundtable-center{width:90px;height:90px}
+  .roundtable-center .deed-card{width:50px;height:70px}
+  .roundtable-center .deed-card .value{font-size:1.2rem}
+  .roundtable-center .deed-card .label{font-size:.45rem}
+  .player-card{min-width:72px;padding:5px 6px}
+  .player-card .pname{max-width:60px;font-size:.65rem}
+  .player-card .avatar{font-size:1rem;margin-bottom:0}
+  .player-card .stat{font-size:.55rem}
+  .player-card .you-badge{font-size:.5rem;padding:1px 4px;top:-6px;right:-6px}
+  .high-bid-bar{padding:6px 12px;font-size:.85rem;margin-bottom:6px}
+  .high-bid-bar .amount{font-size:.95rem}
+  .bid-console{padding:10px 14px;gap:8px}
+  .bid-console .prompt{font-size:.85rem}
+  .bid-buttons button{min-width:44px;padding:8px 10px;font-size:.85rem}
+  .btn-pass{padding:10px 22px;font-size:.95rem}
+}
+</style>
+</head>
+<body>
+
+<!-- ════ LOBBY ════ -->
+<div id="lobby" class="screen active">
+  <h1>🐜 Lootanant</h1>
+  <p class="subtitle">Loot the King Ant — become his Lieutenant!</p>
+  <div class="lobby-box">
+    <label>Your Display Name</label>
+    <input id="nameInput" placeholder="Enter your name…" maxlength="16" value="">
+    <button class="btn-primary" onclick="createRoom()">Create Room</button>
+    <div class="or-divider">— or join an existing room —</div>
+    <label>Room Code</label>
+    <input id="joinCodeInput" placeholder="e.g. AB3XY" maxlength="5" style="text-transform:uppercase">
+    <button class="btn-secondary" onclick="joinRoom()">Join Room</button>
+    <div style="margin-top:8px;text-align:center">
+      <span class="back-link" onclick="showManual()">📖 How to Play</span>
+    </div>
+  </div>
+</div>
+
+<!-- ════ WAITING ROOM ════ -->
+<div id="waitingRoom" class="screen">
+  <h2>🏠 Waiting Room</h2>
+  <div class="room-code-display" id="roomCodeDisplay">-----</div>
+  <p style="color:#888;font-size:.85rem;margin-bottom:6px">Share this code with friends!</p>
+  <ul class="player-list-wait" id="waitPlayerList"></ul>
+  <div class="host-controls" id="hostControls" style="display:none">
+    <button class="btn-secondary btn-small" onclick="addCpu()">+ Add CPU</button>
+    <button class="btn-primary" onclick="startGame()">Start Game</button>
+  </div>
+  <div class="game-settings" id="gameSettings" style="display:none">
+    <h3>⚙️ Game Settings</h3>
+    <div class="setting-row">
+      <label>🏆 Win Net Worth</label>
+      <input type="number" id="settingWinNW" value="50" min="10" max="200" step="5">
+    </div>
+    <div class="setting-hint">Points needed to win (10–200)</div>
+    <div class="setting-row">
+      <label>🪙 Starting Ant-cents</label>
+      <input type="number" id="settingAntCents" value="12" min="1" max="100" step="1">
+    </div>
+    <div class="setting-hint">Each player starts with this many ant-cents (1–100)</div>
+  </div>
+  <p id="waitMsg" style="color:#888;margin-top:14px;font-size:.9rem"></p>
+</div>
+
+<!-- ════ GAME BOARD ════ -->
+<div id="gameBoard" class="screen">
+  <div class="board-top">
+    <span class="room-badge" id="boardRoomCode"></span>
+    <span id="turnIndicator" style="color:#e94560;font-weight:600"></span>
+  </div>
+
+  <!-- Ranking Area -->
+  <div class="ranking-area" id="rankingArea"></div>
+
+  <!-- Roundtable -->
+  <div class="roundtable" id="roundtable">
+    <div class="roundtable-center">
+      <div class="deed-card" id="deedCard">
+        <div class="value" id="deedValue">?</div>
+        <div class="label">Cosmic Deed</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- High Bid -->
+  <div class="high-bid-bar">
+    <span>Highest Bid: <span class="amount" id="highBidAmount">0</span> 🪙</span>
+    <span id="highBidder" style="color:#aaa">—</span>
+  </div>
+
+  <!-- Bid Console -->
+  <div class="bid-console" id="bidConsole" style="display:none">
+    <div class="prompt" id="bidPrompt">Your turn! Place a bid or pass.</div>
+    <div class="bid-buttons" id="bidButtons"></div>
+    <button class="btn-pass" onclick="doPass()">✋ Pass</button>
+    <div class="timer-bar"><div class="fill" id="timerFill" style="width:100%"></div></div>
+  </div>
+</div>
+
+<!-- ════ WINNER OVERLAY ════ -->
+<div id="winnerOverlay">
+  <div class="trophy">🏆</div>
+  <h2 id="winnerTitle">???</h2>
+  <p>has been crowned <b style="color:#e94560">The Lootanant!</b></p>
+  <button class="btn-primary" onclick="location.reload()">Play Again</button>
+</div>
+
+<!-- ════ ROUND BANNER ════ -->
+<div class="round-banner" id="roundBanner">
+  <h2 id="roundBannerTitle">New Round!</h2>
+  <p id="roundBannerText">A new deed has appeared…</p>
+</div>
+
+<!-- ════ TURN BANNER ════ -->
+<div class="turn-banner" id="turnBanner"></div>
+
+<!-- ════ MANUAL ════ -->
+<div id="manual" class="screen">
+  <div class="manual-box">
+    <h2>📖 How to Loot a King</h2>
+    <h3>🐜 The Lore</h3>
+    <p>The King Ant is hoarding the cosmos's most valuable deeds. As a budding thief, your goal is to <b>"Loot an Ant"</b> and prove you have the strategic mind to become his Lieutenant — the <b>Lootanant</b>.</p>
+    <h3>📜 The Rules</h3>
+    <ul>
+      <li><span class="icon">💰</span><b>Starting Out:</b> You begin with <b>12 Ant-cents</b> and <b>0 Net Worth</b>.</li>
+      <li><span class="icon">🃏</span><b>The Deed:</b> Every round, a card appears with a value (1–11). This is how many points you get for winning it.</li>
+      <li><span class="icon">🔨</span><b>The Bidding:</b>
+        <ul>
+          <li>You must bid <b>higher</b> than the last person.</li>
+          <li>You can see how many points (Net Worth) others have, but you <b>cannot</b> see their money.</li>
+          <li>Are they bidding 5 cents because they're rich, or because it's their last 5 cents? <b>Bluffing is key.</b></li>
+        </ul>
+      </li>
+      <li><span class="icon">✅</span><b>Winning the Round:</b> If everyone else "Passes," you pay the money and take the points.</li>
+      <li><span class="icon">🪙</span><b>The Payday:</b> Every time a card is sold (or discarded), the King Ant drops <b>1 Ant-cent</b> for every player.</li>
+      <li><span class="icon">🏆</span><b>Victory:</b> The moment you hit the target <b>Net Worth</b> (default 50), you win and become the <b>Lootanant!</b></li>
+    </ul>
+    <h3>💡 Tips</h3>
+    <ul>
+      <li>Don't blow all your money early — you need cents to bid later!</li>
+      <li>Watch opponents' Net Worth. If someone is close to 50, you may want to outbid them.</li>
+      <li>Sometimes passing is the smartest move. Let others waste their money!</li>
+    </ul>
+    <div class="back-link" onclick="showLobby()">← Back to Lobby</div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- SockJS + STOMP -->
+<script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
+<script>
+// ── State ──
+let roomCode='', playerId='', hostId='', stompClient=null, timerInterval=null;
+let prevState=null, roundNum=0, prevTurnPlayerId=null, renameTimeout=null;
+
+// ── Screen helpers ──
+function show(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active')}
+function showManual(){show('manual')}
+function showLobby(){show('lobby')}
+function toast(msg,dur){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),dur||3500);
+}
+
+function showRoundBanner(title,text){
+  const b=document.getElementById('roundBanner');
+  document.getElementById('roundBannerTitle').textContent=title;
+  document.getElementById('roundBannerText').textContent=text;
+  b.classList.add('show');
+  setTimeout(()=>b.classList.remove('show'),2000);
+}
+
+function showTurnBanner(msg){
+  const b=document.getElementById('turnBanner');
+  b.textContent=msg;b.classList.add('show');
+  setTimeout(()=>b.classList.remove('show'),1500);
+}
+
+// ── API helpers ──
+async function api(path,body){const r=await fetch('/api'+path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});return r.json()}
+
+// ── Create Room ──
+async function createRoom(){
+  const name=document.getElementById('nameInput').value.trim()||'Host';
+  const data=await api('/create',{name});
+  roomCode=data.roomCode;playerId=data.playerId;hostId=data.hostId;
+  document.getElementById('roomCodeDisplay').textContent=roomCode;
+  document.getElementById('hostControls').style.display='flex';
+  document.getElementById('gameSettings').style.display='flex';
+  document.getElementById('waitMsg').textContent='Waiting for players… (min 2 to start)';
+  show('waitingRoom');
+  connectWS();
+}
+
+// ── Join Room ──
+async function joinRoom(){
+  const name=document.getElementById('nameInput').value.trim()||'Player';
+  const code=document.getElementById('joinCodeInput').value.trim().toUpperCase();
+  if(!code){toast('Enter a room code!');return}
+  const data=await api('/join',{roomCode:code,name});
+  if(data.error){toast(data.error);return}
+  roomCode=code;playerId=data.playerId;hostId='';
+  document.getElementById('roomCodeDisplay').textContent=roomCode;
+  document.getElementById('hostControls').style.display='none';
+  document.getElementById('gameSettings').style.display='none';
+  document.getElementById('waitMsg').textContent='Waiting for host to start…';
+  show('waitingRoom');
+  connectWS();
+}
+
+// ── Add CPU ──
+async function addCpu(){await api('/addCpu',{roomCode,hostId})}
+
+// ── Start Game ──
+async function startGame(){
+  // Save settings before starting
+  const winNW=parseInt(document.getElementById('settingWinNW').value)||50;
+  const antC=parseInt(document.getElementById('settingAntCents').value)||12;
+  const s=await api('/settings',{roomCode,hostId,winNetWorth:winNW,startingAntCents:antC});
+  if(s.error){toast(s.error);return}
+  const d=await api('/start',{roomCode,hostId});if(d.error)toast(d.error)
+}
+
+// ── Rename ──
+function scheduleRename(newName){
+  if(renameTimeout)clearTimeout(renameTimeout);
+  renameTimeout=setTimeout(()=>{
+    api('/rename',{roomCode,playerId,name:newName});
+  },400);
+}
+
+// ── WebSocket ──
+function connectWS(){
+  const socket=new SockJS('/ws');
+  stompClient=Stomp.over(socket);
+  stompClient.debug=null;
+  stompClient.connect({},()=>{
+    // Personal state channel
+    stompClient.subscribe('/topic/room/'+roomCode+'/state/'+playerId, msg=>{
+      const state=JSON.parse(msg.body);
+      if(state.started&&!state.finished) renderGame(state);
+      else if(!state.started) renderWaiting(state);
+    });
+    // Game started event (ensures all players transition)
+    stompClient.subscribe('/topic/room/'+roomCode+'/gameStarted', msg=>{
+      // Force fetch state and switch to game
+      fetch('/api/state/'+roomCode+'/'+playerId).then(r=>r.json()).then(state=>{
+        if(state.started) renderGame(state);
+      });
+    });
+    // Round results
+    stompClient.subscribe('/topic/room/'+roomCode+'/roundResult', msg=>{
+      const r=JSON.parse(msg.body);
+      if(r.discarded){
+        showRoundBanner('Card Discarded!','No bids this round. +1 🪙 for everyone.');
+      } else {
+        showRoundBanner('🔨 '+r.roundWinner+' Wins!','Paid '+r.bidPaid+' 🪙 for a '+r.deedValue+'-point deed. +1 🪙 for all.');
+      }
+    });
+    // Winner
+    stompClient.subscribe('/topic/room/'+roomCode+'/winner', msg=>{
+      const w=JSON.parse(msg.body);
+      document.getElementById('winnerTitle').textContent=w.winnerName;
+      document.getElementById('winnerOverlay').classList.add('active');
+    });
+    // Request initial state
+    fetch('/api/state/'+roomCode+'/'+playerId).then(r=>r.json()).then(state=>{
+      if(state.started) renderGame(state);
+      else renderWaiting(state);
+    });
+  });
+}
+
+// ── Render Waiting ──
+function renderWaiting(state){
+  // Sync settings display for host
+  if(hostId&&state.winNetWorth!=null){
+    const nwInput=document.getElementById('settingWinNW');
+    const acInput=document.getElementById('settingAntCents');
+    if(nwInput&&document.activeElement!==nwInput)nwInput.value=state.winNetWorth;
+    if(acInput&&document.activeElement!==acInput)acInput.value=state.startingAntCents;
+  }
+  const ul=document.getElementById('waitPlayerList');
+  // Check if the rename input is currently focused — if so, skip re-render to avoid mobile keyboard dismissal
+  const activeEl=document.activeElement;
+  const renameInputFocused=activeEl&&activeEl.tagName==='INPUT'&&activeEl.closest('.player-list-wait');
+  if(renameInputFocused){
+    // Only update other players' names without touching the focused input
+    const items=ul.querySelectorAll('li');
+    let idx=0;
+    state.players.forEach(p=>{
+      if(idx<items.length){
+        if(!p.isYou){
+          if(p.cpu) items[idx].textContent='🤖 '+p.displayName;
+          else items[idx].textContent='🐜 '+p.displayName;
+        }
+      }
+      idx++;
+    });
+    return;
+  }
+  ul.innerHTML='';
+  state.players.forEach(p=>{
+    const li=document.createElement('li');
+    if(p.cpu){
+      li.classList.add('cpu');
+      li.textContent='🤖 '+p.displayName;
+    } else if(p.isYou){
+      const lbl=document.createElement('span');
+      lbl.textContent='⭐ ';
+      li.appendChild(lbl);
+      const inp=document.createElement('input');
+      inp.value=p.displayName;
+      inp.maxLength=16;
+      inp.placeholder='Your name';
+      inp.addEventListener('input',()=>scheduleRename(inp.value.trim()||'Player'));
+      li.appendChild(inp);
+    } else {
+      li.textContent='🐜 '+p.displayName;
+    }
+    ul.appendChild(li);
+  });
+}
+
+// ── Seat positions for roundtable ──
+function getSeatPositions(count){
+  // Arrange seats in a circle around center
+  const positions=[];
+  const isMobile=window.innerWidth<=600;
+    const rx=isMobile?44:40, ry=isMobile?44:40; // % from center
+  for(let i=0;i<count;i++){
+    const angle=(2*Math.PI*i/count)-Math.PI/2; // start from top
+    const x=50+rx*Math.cos(angle);
+    const y=50+ry*Math.sin(angle);
+    positions.push({x,y});
+  }
+  return positions;
+}
+
+// ── Render Game ──
+function renderGame(state){
+  show('gameBoard');
+  document.getElementById('boardRoomCode').textContent='Room: '+state.roomCode;
+  document.getElementById('highBidAmount').textContent=state.currentHighBid;
+
+  // Deed card
+  const deedEl=document.getElementById('deedValue');
+  const deedCard=document.getElementById('deedCard');
+  if(!prevState||prevState.currentDeedValue!==state.currentDeedValue){
+    deedEl.textContent=state.currentDeedValue;
+    deedCard.classList.remove('flip-in');
+    void deedCard.offsetWidth;
+    deedCard.classList.add('flip-in');
+    if(prevState&&prevState.currentDeedValue!==state.currentDeedValue){
+      roundNum++;
+      showRoundBanner('🃏 New Deed!','A '+state.currentDeedValue+'-point cosmic deed has appeared!');
+    }
+  }
+
+  // High bidder name
+  const hb=state.players.find(p=>p.id===state.currentHighBidderId);
+  document.getElementById('highBidder').textContent=hb?('by '+hb.displayName):'No bids yet';
+
+  // Current turn
+  const ct=state.players.find(p=>p.id===state.currentTurnPlayerId);
+  const isMyTurn=state.currentTurnPlayerId===playerId;
+  document.getElementById('turnIndicator').textContent=ct?(isMyTurn?'🎯 Your Turn!':'⏳ '+ct.displayName+"'s turn"):'';
+
+  // Turn change animation
+  if(prevState&&state.currentTurnPlayerId&&state.currentTurnPlayerId!==prevTurnPlayerId){
+    if(isMyTurn){
+      showTurnBanner('🎯 Your Turn!');
+    } else if(ct){
+      showTurnBanner('⏳ '+ct.displayName+"'s turn");
+    }
+  }
+  prevTurnPlayerId=state.currentTurnPlayerId;
+
+  // Ranking area (top 3)
+  const rankArea=document.getElementById('rankingArea');
+  const sorted=[...state.players].sort((a,b)=>b.netWorth-a.netWorth);
+  const top3=sorted.slice(0,3);
+  const medals=['🥇','🥈','🥉'];
+  rankArea.innerHTML='<h4>🏅 Leaderboard</h4>'+top3.map((p,i)=>
+    `<div class="ranking-row"><span class="rank-medal">${medals[i]}</span><span class="rank-name">${p.displayName}${p.isYou?' (You)':''}</span><span class="rank-nw">${p.netWorth} pts</span></div>`
+  ).join('');
+
+  // Roundtable player seats
+  const table=document.getElementById('roundtable');
+  // Remove old seats
+  table.querySelectorAll('.player-seat').forEach(s=>s.remove());
+  const seats=getSeatPositions(state.players.length);
+  state.players.forEach((p,i)=>{
+    const seat=document.createElement('div');
+    seat.className='player-seat';
+    seat.style.left=seats[i].x+'%';
+    seat.style.top=seats[i].y+'%';
+    seat.style.transform='translate(-50%,-50%)';
+
+    const card=document.createElement('div');
+    card.className='player-card';
+    if(p.id===state.currentTurnPlayerId)card.classList.add('active-turn');
+    if(p.passed)card.classList.add('passed');
+    if(p.id===state.winnerId)card.classList.add('winner-card');
+
+    // Detect net worth increase for animation
+    let nwClass='';
+    if(prevState){
+      const prev=prevState.players.find(pp=>pp.id===p.id);
+      if(prev&&p.netWorth>prev.netWorth) nwClass='nw-pop';
+    }
+
+    // Detect bid win glow
+    let bidWinClass='';
+    if(prevState&&prevState.currentHighBidderId!==state.currentHighBidderId&&p.id===state.currentHighBidderId){
+      bidWinClass='bid-win-glow';
+    }
+
+    card.innerHTML=`
+      <div class="avatar">${p.cpu?'🤖':'🐜'}</div>
+      ${p.isYou?'<span class="you-badge">YOU</span>':''}
+      <div class="pname">${p.displayName}</div>
+      <div class="stat ${nwClass}">NW: <b>${p.netWorth}</b></div>
+      ${p.isYou?`<div class="stat">🪙 ${p.antCents}</div>`:''}
+      ${p.passed?'<div class="stat" style="color:#e94560">Passed</div>':''}
+    `;
+    if(bidWinClass)card.classList.add(bidWinClass);
+
+    seat.appendChild(card);
+    table.appendChild(seat);
+  });
+
+  // Bid console
+  const console_=document.getElementById('bidConsole');
+  if(isMyTurn&&!state.finished){
+    console_.style.display='flex';
+    console_.classList.remove('fade-scale');
+    void console_.offsetWidth;
+    console_.classList.add('fade-scale');
+    const minBid=state.currentHighBid+1;
+    const me=state.players.find(p=>p.isYou);
+    const myMoney=me?me.antCents:0;
+    const btns=document.getElementById('bidButtons');
+    btns.innerHTML='';
+    if(myMoney>=minBid){
+      const bids=new Set();
+      bids.add(minBid);
+      for(let b=minBid;b<=myMoney;b+=Math.max(1,Math.floor((myMoney-minBid)/5))){bids.add(b)}
+      bids.add(myMoney);
+      [...bids].sort((a,b)=>a-b).forEach(b=>{
+        const btn=document.createElement('button');
+        btn.textContent=b+' 🪙';
+        btn.onclick=()=>doBid(b);
+        btns.appendChild(btn);
+      });
+    }
+    document.getElementById('bidPrompt').textContent=myMoney>=minBid?`Bid at least ${minBid} 🪙 (you have ${myMoney})`:'You cannot outbid — pass this round.';
+    startTimerBar();
+  } else {
+    console_.style.display='none';
+    stopTimerBar();
+  }
+
+  prevState=JSON.parse(JSON.stringify(state));
+}
+
+// ── Actions ──
+async function doBid(amount){
+  document.getElementById('bidConsole').style.display='none';
+  stopTimerBar();
+  await api('/bid',{roomCode,playerId,amount});
+}
+async function doPass(){
+  document.getElementById('bidConsole').style.display='none';
+  stopTimerBar();
+  await api('/pass',{roomCode,playerId});
+}
+
+// ── Timer Bar ──
+function startTimerBar(){
+  stopTimerBar();
+  let remaining=15;
+  const fill=document.getElementById('timerFill');
+  fill.style.width='100%';
+  timerInterval=setInterval(()=>{
+    remaining-=0.1;
+    if(remaining<=0){remaining=0;stopTimerBar()}
+    fill.style.width=(remaining/15*100)+'%';
+  },100);
+}
+function stopTimerBar(){if(timerInterval){clearInterval(timerInterval);timerInterval=null}}
+</script>
+</body>
+</html>

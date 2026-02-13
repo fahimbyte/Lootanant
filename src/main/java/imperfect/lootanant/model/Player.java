@@ -3,7 +3,7 @@ package imperfect.lootanant.model;
 public class Player {
     private String id;
     private String displayName;
-    private int antCents = 12;
+    private int cents = 12;
     private int netWorth = 0;
     private boolean cpu = false;
     private boolean passedThisRound = false;
@@ -19,8 +19,8 @@ public class Player {
     public void setId(String id) { this.id = id; }
     public String getDisplayName() { return displayName; }
     public void setDisplayName(String displayName) { this.displayName = displayName; }
-    public int getAntCents() { return antCents; }
-    public void setAntCents(int antCents) { this.antCents = antCents; }
+    public int getCents() { return cents; }
+    public void setCents(int cents) { this.cents = cents; }
     public int getNetWorth() { return netWorth; }
     public void setNetWorth(int netWorth) { this.netWorth = netWorth; }
     public boolean isCpu() { return cpu; }

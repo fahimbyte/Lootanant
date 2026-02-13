@@ -166,6 +166,7 @@ input:focus{border-color:#e94560}
 .round-banner.show{transform:translate(-50%,-50%) scale(1);opacity:1}
 .round-banner h2{color:#e94560;font-size:1.8rem;margin-bottom:6px}
 .round-banner p{color:#ccc;font-size:1rem}
+.round-banner .round-number{font-size:.85rem;color:#ffd700;margin-top:6px}
 
 /* Turn Banner */
 .turn-banner{position:fixed;top:12%;left:50%;transform:translateX(-50%) translateY(-20px);background:rgba(233,69,96,.9);color:#fff;padding:10px 30px;border-radius:12px;font-size:1.1rem;font-weight:700;z-index:70;opacity:0;transition:all .3s ease;pointer-events:none}
@@ -185,6 +186,80 @@ input:focus{border-color:#e94560}
 /* Toast */
 .toast{position:fixed;top:20px;left:50%;transform:translateX(-50%);background:#0f3460;color:#fff;padding:14px 28px;border-radius:12px;font-size:1rem;z-index:90;opacity:0;transition:opacity .3s;pointer-events:none;max-width:90vw;text-align:center}
 .toast.show{opacity:1}
+
+/* ── Rage Mode: King's Vault ── */
+.kings-vault{background:linear-gradient(135deg,#ffd700,#b8860b);border-radius:14px;padding:10px 18px;display:flex;align-items:center;gap:10px;margin:0 auto 10px;max-width:500px;box-shadow:0 0 15px rgba(255,215,0,.3);transition:all .3s}
+.kings-vault.glow{box-shadow:0 0 30px rgba(255,215,0,.7);transform:scale(1.05)}
+.kings-vault.shake{animation:vaultShake .5s ease}
+@keyframes vaultShake{0%,100%{transform:translateX(0)}20%{transform:translateX(-8px)}40%{transform:translateX(8px)}60%{transform:translateX(-4px)}80%{transform:translateX(4px)}}
+.kings-vault .vault-icon{font-size:1.8rem}
+.kings-vault .vault-amount{font-size:1.2rem;font-weight:800;color:#333}
+.kings-vault .vault-label{font-size:.7rem;color:#5a3e00;font-weight:600}
+
+/* Rage Mode: Bribe & Loan Panel */
+.rage-panel{background:#16213e;border-radius:14px;padding:12px 18px;width:100%;max-width:500px;margin:0 auto 10px;display:flex;flex-wrap:wrap;gap:8px;justify-content:center;align-items:center}
+.rage-panel .rage-title{width:100%;text-align:center;font-size:.8rem;color:#e94560;font-weight:700;margin-bottom:2px}
+.btn-bribe{background:#8b0000;color:#fff;font-size:.8rem;padding:6px 12px;border-radius:8px}
+.btn-bribe:hover{background:#c0392b}
+.bribe-amount-step{display:flex;flex-direction:column;gap:8px;margin:12px 0}
+.bribe-amount-step label{color:#ccc;font-size:.85rem}
+.bribe-amount-btns{display:flex;gap:6px;justify-content:center}
+.bribe-amount-btns button{background:#8b0000;color:#fff;padding:8px 16px;border-radius:8px;font-size:.9rem;cursor:pointer;border:none}
+.bribe-amount-btns button:hover{background:#c0392b}
+.bribe-amount-btns button:disabled{opacity:.3;cursor:not-allowed}
+.btn-loan{background:#2e7d32;color:#fff;font-size:.8rem;padding:6px 12px;border-radius:8px}
+.btn-loan:hover{background:#43a047}
+.bribe-indicator{color:#e94560;font-size:.6rem;position:absolute;top:-6px;left:-6px}
+.tax-countdown{font-size:.75rem;color:#ffd700;text-align:center;margin:4px 0}
+
+/* Rage Mode: Jackpot Round */
+.jackpot-badge{background:linear-gradient(135deg,#ffd700,#ff6b00);color:#333;font-weight:800;font-size:.85rem;padding:6px 14px;border-radius:10px;text-align:center;animation:jackpotPulse 1.5s ease infinite;margin:4px auto}
+@keyframes jackpotPulse{0%,100%{box-shadow:0 0 8px rgba(255,215,0,.5);transform:scale(1)}50%{box-shadow:0 0 25px rgba(255,215,0,.9);transform:scale(1.05)}}
+.deed-card.jackpot-card{border-color:#ff6b00!important;box-shadow:0 6px 25px rgba(255,107,0,.6), inset 0 0 20px rgba(255,255,255,0.4)!important}
+
+/* Rage Mode: Tax Overlay */
+.tax-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:85;flex-direction:column;align-items:center;justify-content:center;text-align:center}
+.tax-overlay.active{display:flex}
+.tax-overlay .auditor{font-size:4rem;animation:auditorWalk 3s ease-in-out}
+@keyframes auditorWalk{0%{transform:translateX(-100vw)}50%{transform:translateX(0) scale(1.2)}100%{transform:translateX(0) scale(1)}}
+.tax-overlay h2{color:#ffd700;font-size:1.6rem;margin:10px 0}
+.tax-overlay .tax-detail{color:#ccc;font-size:.9rem;margin:2px 0}
+.tax-confirm-btn{margin-top:16px;background:#e94560;color:#fff;padding:12px 30px;border-radius:10px;font-size:1rem;font-weight:700;cursor:pointer;border:none;animation:pulse 1.5s ease infinite}
+.tax-confirm-btn:disabled{opacity:.4;cursor:not-allowed;animation:none}
+.tax-confirm-status{color:#888;font-size:.8rem;margin-top:8px}
+@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
+
+/* Bribe Modal */
+.bribe-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:88;flex-direction:column;align-items:center;justify-content:center}
+.bribe-modal.active{display:flex}
+.bribe-modal-content{background:#16213e;border-radius:16px;padding:24px;max-width:360px;width:90%;text-align:center}
+.bribe-modal-content h3{color:#e94560;margin-bottom:12px}
+.bribe-target-list{display:flex;flex-direction:column;gap:8px;margin:12px 0}
+.bribe-target-btn{background:#0f3460;color:#fff;padding:10px;border-radius:10px;font-size:.9rem;cursor:pointer;border:none}
+.bribe-target-btn:hover{background:#e94560}
+
+/* Loan Modal */
+.loan-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:88;flex-direction:column;align-items:center;justify-content:center}
+.loan-modal.active{display:flex}
+.loan-modal-content{background:#16213e;border-radius:16px;padding:24px;max-width:360px;width:90%;text-align:center}
+.loan-modal-content h3{color:#2e7d32;margin-bottom:12px}
+.loan-modal-content input{width:80px;margin:10px;text-align:center}
+.loan-modal-content .loan-warning{color:#e94560;font-size:.8rem;margin:8px 0}
+
+/* Mode selector in lobby */
+.mode-selector{display:flex;gap:10px;margin:8px 0}
+.mode-btn{flex:1;padding:14px 10px;border-radius:12px;text-align:center;cursor:pointer;border:3px solid transparent;transition:all .2s;background:#0f3460;color:#fff}
+.mode-btn.selected{border-color:#e94560;background:#1a1a3e}
+.mode-btn .mode-icon{font-size:1.5rem;display:block;margin-bottom:4px}
+.mode-btn .mode-name{font-weight:700;font-size:.9rem}
+.mode-btn .mode-desc{font-size:.65rem;color:#888;margin-top:2px}
+
+/* Manual tabs */
+.manual-tabs{display:flex;gap:8px;margin-bottom:16px}
+.manual-tab{padding:8px 20px;border-radius:8px;cursor:pointer;background:#0f3460;color:#fff;font-weight:600;border:2px solid transparent;transition:all .2s}
+.manual-tab.active{border-color:#e94560;background:#1a1a3e}
+.manual-tab-content{display:none}
+.manual-tab-content.active{display:block}
 
 /* Mobile */
 @media(max-width:600px){
@@ -209,6 +284,12 @@ input:focus{border-color:#e94560}
   .bid-console .prompt{font-size:.85rem}
   .bid-buttons button{min-width:44px;padding:8px 10px;font-size:.85rem}
   .btn-pass{padding:10px 22px;font-size:.95rem}
+  .kings-vault{padding:8px 12px;gap:6px}
+  .kings-vault .vault-icon{font-size:1.3rem}
+  .kings-vault .vault-amount{font-size:1rem}
+  .rage-panel{padding:8px 10px;gap:6px}
+  .mode-selector{flex-direction:column;gap:6px}
+  .mode-btn{padding:10px 8px}
 }
 </style>
 </head>
@@ -221,6 +302,19 @@ input:focus{border-color:#e94560}
   <div class="lobby-box">
     <label>Your Display Name</label>
     <input id="nameInput" placeholder="Enter your name…" maxlength="16" value="">
+    <label>Game Mode</label>
+    <div class="mode-selector">
+      <div class="mode-btn selected" id="modeClassic" onclick="selectMode('classic')">
+        <span class="mode-icon">🧈</span>
+        <span class="mode-name">Classic</span>
+        <span class="mode-desc">The original auction game</span>
+      </div>
+      <div class="mode-btn" id="modeRage" onclick="selectMode('rage')">
+        <span class="mode-icon">👑</span>
+        <span class="mode-name">Rage</span>
+        <span class="mode-desc">Taxes, bribes & the King's Vault</span>
+      </div>
+    </div>
     <button class="btn-primary" onclick="createRoom()">Create Room</button>
     <div class="or-divider">— or join an existing room —</div>
     <label>Room Code</label>
@@ -277,6 +371,16 @@ input:focus{border-color:#e94560}
   <!-- Ranking Area -->
   <div class="ranking-area" id="rankingArea"></div>
 
+  <!-- King's Vault (Rage mode only) -->
+  <div class="kings-vault" id="kingsVault" style="display:none">
+    <span class="vault-icon">👑🏦</span>
+    <div>
+      <div class="vault-amount" id="vaultAmount">0 ¢</div>
+      <div class="vault-label">King's Vault</div>
+    </div>
+    <div class="tax-countdown" id="taxCountdown"></div>
+  </div>
+
   <!-- Roundtable -->
   <div class="roundtable" id="roundtable">
     <div class="roundtable-center">
@@ -298,6 +402,55 @@ input:focus{border-color:#e94560}
     <div class="bid-buttons" id="bidButtons"></div>
     <button class="btn-pass" onclick="doPass()">✋ Pass</button>
     <div class="timer-bar"><div class="fill" id="timerFill" style="width:100%"></div></div>
+  </div>
+
+  <!-- Rage Panel (Rage mode only) -->
+  <div class="rage-panel" id="ragePanel" style="display:none">
+    <div class="rage-title">👑 Rage Actions</div>
+    <button class="btn-bribe" onclick="openBribeModal()">🗡️ Bribe (1-4¢)</button>
+    <button class="btn-loan" id="loanBtn" onclick="openLoanModal()">🏦 Take a Loan</button>
+  </div>
+</div>
+
+<!-- ════ TAX OVERLAY ════ -->
+<div class="tax-overlay" id="taxOverlay">
+  <div class="auditor" id="taxAuditor">🐜👑</div>
+  <h2>The King's Auditor Collects!</h2>
+  <div id="taxDetails"></div>
+  <button class="tax-confirm-btn" id="taxConfirmBtn" onclick="confirmTaxRead()">✅ I've Read It — Continue</button>
+  <div class="tax-confirm-status" id="taxConfirmStatus"></div>
+</div>
+
+<!-- ════ BRIBE MODAL ════ -->
+<div class="bribe-modal" id="bribeModal">
+  <div class="bribe-modal-content">
+    <h3>🗡️ Anonymous Bribe</h3>
+    <p style="color:#aaa;font-size:.85rem">Pay 1-4¢ to increase a player's tax (+10% per ¢)<br>Max 40% bribe tax per player. Nobody will know it was you!</p>
+    <div class="bribe-target-list" id="bribeTargetList"></div>
+    <div class="bribe-amount-step" id="bribeAmountStep" style="display:none">
+      <label>Select bribe amount for <b id="bribeTargetName"></b>:</label>
+      <div class="bribe-amount-btns" id="bribeAmountBtns"></div>
+      <p style="color:#888;font-size:.75rem" id="bribeCapInfo"></p>
+    </div>
+    <button class="btn-secondary btn-small" onclick="closeBribeModal()" style="margin-top:10px">Cancel</button>
+  </div>
+</div>
+
+<!-- ════ LOAN MODAL ════ -->
+<div class="loan-modal" id="loanModal">
+  <div class="loan-modal-content">
+    <h3>🏦 Take a Loan</h3>
+    <p style="color:#aaa;font-size:.85rem">Borrow from the King's Vault</p>
+    <p class="loan-warning">⚠️ Penalty: 35% of your Net Worth (min 3 Karats)</p>
+    <div>
+      <label style="color:#ccc;font-size:.85rem">Amount to borrow:</label>
+      <input type="number" id="loanAmountInput" min="1" value="1">
+    </div>
+    <p style="color:#888;font-size:.75rem;margin-top:4px">Vault has: <b id="loanVaultDisplay">0</b> ¢</p>
+    <div style="display:flex;gap:8px;justify-content:center;margin-top:12px">
+      <button class="btn-loan" onclick="doLoan()">Take Loan</button>
+      <button class="btn-secondary btn-small" onclick="closeLoanModal()">Cancel</button>
+    </div>
   </div>
 </div>
 
@@ -322,29 +475,86 @@ input:focus{border-color:#e94560}
 <div id="manual" class="screen">
   <div class="manual-box">
     <h2>📖 How to Loot a King</h2>
-    <h3>👑 The Lore</h3>
-    <p>The King is hoarding the world's purest Gold Bars. As a budding thief, your goal is to prove you have the strategic mind to become his Lieutenant — the <b>Lootanant</b>.</p>
-    <h3>📜 The Rules</h3>
-    <ul>
-      <li><span class="icon">💰</span><b>Starting Out:</b> You begin with <b>12 ¢</b> and <b>0 Net Worth</b>.</li>
-      <li><span class="icon">🧈</span><b>The Gold Bar:</b> Every round, a bar appears with a purity (1k–24k). This is how many points you get for winning it.</li>
-      <li><span class="icon">🔨</span><b>The Bidding:</b>
-        <ul>
-          <li>You must bid <b>higher</b> than the last person.</li>
-          <li>You can see how many points (Gold Bars) others have, but you <b>cannot</b> see their money.</li>
-          <li>Are they bidding 5 ¢ because they're rich, or because it's their last 5 ¢? <b>Bluffing is key.</b></li>
-        </ul>
-      </li>
-      <li><span class="icon">✅</span><b>Winning the Round:</b> If everyone else "Passes," you pay the money and take the bar.</li>
-      <li><span class="icon">¢</span><b>The Payday:</b> Every time a bar is sold (or discarded), the King drops <b>1 ¢</b> for every player.</li>
-      <li><span class="icon">🏆</span><b>Victory:</b> The moment you hit the target <b>Net Worth</b> (default 50), you win and become the <b>Lootanant!</b></li>
-    </ul>
-    <h3>💡 Tips</h3>
-    <ul>
-      <li>Don't blow all your money early — you need cents to bid later!</li>
-      <li>Watch opponents' Net Worth. If someone is close to 50, you may want to outbid them.</li>
-      <li>Sometimes passing is the smartest move. Let others waste their money!</li>
-    </ul>
+    <div class="manual-tabs">
+      <div class="manual-tab active" onclick="switchManualTab('classic')">🧈 Classic</div>
+      <div class="manual-tab" onclick="switchManualTab('rage')">👑 Rage</div>
+    </div>
+
+    <!-- Classic Tab -->
+    <div class="manual-tab-content active" id="manualClassic">
+      <h3>👑 The Lore</h3>
+      <p>The King is hoarding the world's purest Gold Bars. As a budding thief, your goal is to prove you have the strategic mind to become his Lieutenant — the <b>Lootanant</b>.</p>
+      <h3>📜 The Rules</h3>
+      <ul>
+        <li><span class="icon">💰</span><b>Starting Out:</b> You begin with <b>12 ¢</b> and <b>0 Net Worth</b>.</li>
+        <li><span class="icon">🧈</span><b>The Gold Bar:</b> Every round, a bar appears with a purity (1k–24k). This is how many points you get for winning it.</li>
+        <li><span class="icon">🔨</span><b>The Bidding:</b>
+          <ul>
+            <li>You must bid <b>higher</b> than the last person.</li>
+            <li>You can see how many points (Gold Bars) others have, but you <b>cannot</b> see their money.</li>
+            <li>Are they bidding 5 ¢ because they're rich, or because it's their last 5 ¢? <b>Bluffing is key.</b></li>
+          </ul>
+        </li>
+        <li><span class="icon">✅</span><b>Winning the Round:</b> If everyone else "Passes," you pay the money and take the bar.</li>
+        <li><span class="icon">¢</span><b>The Payday:</b> Every time a bar is sold (or discarded), the King drops <b>1 ¢</b> for every player.</li>
+        <li><span class="icon">🏆</span><b>Victory:</b> The moment you hit the target <b>Net Worth</b> (default 50), you win and become the <b>Lootanant!</b></li>
+      </ul>
+      <h3>💡 Tips</h3>
+      <ul>
+        <li>Don't blow all your money early — you need cents to bid later!</li>
+        <li>Watch opponents' Net Worth. If someone is close to 50, you may want to outbid them.</li>
+        <li>Sometimes passing is the smartest move. Let others waste their money!</li>
+      </ul>
+    </div>
+
+    <!-- Rage Tab -->
+    <div class="manual-tab-content" id="manualRage">
+      <h3>👑 Rage Mode — The King Fights Back!</h3>
+      <p>Rage mode includes everything from Classic, <b>plus</b> the King's Vault, taxation, anonymous bribing, and desperate loans. The stakes are higher and the betrayals are real!</p>
+
+      <h3>🏦 The King's Vault & Taxation</h3>
+      <ul>
+        <li><span class="icon">📅</span><b>Every 5 Rounds:</b> A <b>Taxation Phase</b> triggers after the auction.</li>
+        <li><span class="icon">💸</span><b>Base Tax:</b> Every player is taxed <b>25%</b> of their total Ant-cents (rounded down).</li>
+        <li><span class="icon">🏦</span><b>The Vault:</b> All taxed cents go into the <b>King's Vault</b> — a golden chest displayed prominently on screen.</li>
+      </ul>
+
+      <h3>🗡️ Anonymous Bribing (The Sabotage)</h3>
+      <ul>
+        <li><span class="icon">💰</span><b>Cost:</b> Pay <b>1 ¢</b> to increase a target player's tax by <b>+10%</b> for the next Taxation Phase.</li>
+        <li><span class="icon">🤫</span><b>Anonymous:</b> The game announces <i>"Someone whispered to the King…"</i> but <b>never</b> reveals who paid.</li>
+        <li><span class="icon">📊</span><b>Stacking:</b> Bribes stack up to a max of <b>40%</b> extra tax (total max: <b>65%</b>).</li>
+        <li><span class="icon">⚠️</span><b>Indicator:</b> A ⚠️ icon appears next to bribed players so everyone knows who's targeted.</li>
+        <li>Bribe money goes directly into the King's Vault.</li>
+      </ul>
+
+      <h3>🏦 Take a Loan (The Recovery)</h3>
+      <ul>
+        <li><span class="icon">📉</span><b>Eligibility:</b> Only players with <b>fewer than 3 ¢</b> can take a loan.</li>
+        <li><span class="icon">💵</span><b>Benefit:</b> Borrow desired Ant-cents from the King's Vault (if available).</li>
+        <li><span class="icon">⚠️</span><b>Penalty:</b> Lose <b>35%</b> of your Net Worth (minimum 3 Karats).</li>
+        <li><span class="icon">📢</span><b>Public:</b> Everyone sees a notification: <i>"[Player] took a desperate loan!"</i></li>
+      </ul>
+
+      <h3>🎰 Vault Jackpot (The Money Returns!)</h3>
+      <ul>
+        <li><span class="icon">📅</span><b>Every 11th Round:</b> (Round 11, 22, 33…) is a <b>Jackpot Round</b>.</li>
+        <li><span class="icon">🔑</span><b>Key to the Vault:</b> The gold bar becomes the "Key to the Vault" — the card glows orange!</li>
+        <li><span class="icon">💰</span><b>Winner Takes All:</b> Whoever wins the auction gets the gold bar's Karats <b>PLUS up to 20 Ant-cents</b> from the King's Vault.</li>
+        <li><span class="icon">🔄</span><b>Vault Payout:</b> The jackpot winner receives up to <b>20 ¢</b> from the vault. Any remaining cents stay in the vault.</li>
+        <li><span class="icon">⚠️</span><b>No Winner?</b> If nobody bids, the vault keeps its money until the next Jackpot Round.</li>
+      </ul>
+
+      <h3>💡 Rage Tips</h3>
+      <ul>
+        <li>Bribe the leader before a tax round to drain their funds!</li>
+        <li>Keep an eye on the vault — a big vault means big loan opportunities.</li>
+        <li>Taking a loan is risky — your net worth drops, putting you further from victory.</li>
+        <li>Watch the ⚠️ icons — if you're being targeted, save your cents!</li>
+        <li>Save your cents for Jackpot Rounds — winning one can be a massive game-changer!</li>
+      </ul>
+    </div>
+
     <div class="back-link" onclick="showLobby()">← Back to Lobby</div>
   </div>
 </div>
@@ -360,6 +570,29 @@ input:focus{border-color:#e94560}
 let roomCode='', playerId='', hostId='', stompClient=null, timerInterval=null;
 let prevState=null, roundNum=0, prevTurnPlayerId=null, renameTimeout=null;
 let isSpectator = false;
+let selectedGameMode = 'classic';
+let currentGameMode = 'classic';
+let prevVaultAmount = 0;
+
+// ── Mode Selection ──
+function selectMode(mode){
+  selectedGameMode=mode;
+  document.getElementById('modeClassic').classList.toggle('selected',mode==='classic');
+  document.getElementById('modeRage').classList.toggle('selected',mode==='rage');
+}
+
+// ── Manual Tabs ──
+function switchManualTab(tab){
+  document.querySelectorAll('.manual-tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.manual-tab-content').forEach(t=>t.classList.remove('active'));
+  if(tab==='classic'){
+    document.querySelectorAll('.manual-tab')[0].classList.add('active');
+    document.getElementById('manualClassic').classList.add('active');
+  } else {
+    document.querySelectorAll('.manual-tab')[1].classList.add('active');
+    document.getElementById('manualRage').classList.add('active');
+  }
+}
 
 // ── Persistence ──
 function saveSession(){
@@ -400,21 +633,27 @@ function showLobby(){show('lobby')}
 function toast(msg,dur){
   const t=document.getElementById('toast');
   t.textContent=msg;t.classList.add('show');
-  setTimeout(()=>t.classList.remove('show'),dur||3500);
+  setTimeout(()=>t.classList.remove('show'),dur||6000);
 }
 
-function showRoundBanner(title,text){
+function showRoundBanner(title,text,extra){
   const b=document.getElementById('roundBanner');
   document.getElementById('roundBannerTitle').textContent=title;
   document.getElementById('roundBannerText').textContent=text;
+  // Add round number if available
+  let existingRN=b.querySelector('.round-number');
+  if(extra){
+    if(!existingRN){existingRN=document.createElement('div');existingRN.className='round-number';b.appendChild(existingRN);}
+    existingRN.textContent=extra;
+  } else if(existingRN){existingRN.remove();}
   b.classList.add('show');
-  setTimeout(()=>b.classList.remove('show'),2000);
+  setTimeout(()=>b.classList.remove('show'),5000);
 }
 
 function showTurnBanner(msg){
   const b=document.getElementById('turnBanner');
   b.textContent=msg;b.classList.add('show');
-  setTimeout(()=>b.classList.remove('show'),1500);
+  setTimeout(()=>b.classList.remove('show'),3500);
 }
 
 // ── API helpers ──
@@ -423,8 +662,9 @@ async function api(path,body){const r=await fetch('/api'+path,{method:'POST',hea
 // ── Create Room ──
 async function createRoom(){
   const name=document.getElementById('nameInput').value.trim()||'Host';
-  const data=await api('/create',{name});
+  const data=await api('/create',{name,gameMode:selectedGameMode});
   roomCode=data.roomCode;playerId=data.playerId;hostId=data.hostId;isSpectator=false;
+  currentGameMode=data.gameMode||'classic';
   saveSession();
   document.getElementById('roomCodeDisplay').textContent=roomCode;
   document.getElementById('hostControls').style.display='flex';
@@ -442,6 +682,7 @@ async function joinRoom(){
   const data=await api('/join',{roomCode:code,name});
   if(data.error){toast(data.error);return}
   roomCode=code;playerId=data.playerId;hostId='';isSpectator=false;
+  currentGameMode=data.gameMode||'classic';
   saveSession();
   document.getElementById('roomCodeDisplay').textContent=roomCode;
   document.getElementById('hostControls').style.display='none';
@@ -451,8 +692,9 @@ async function joinRoom(){
   connectWS();
 }
 
-// ── Add CPU ──
+// ── Add / Remove CPU ──
 async function addCpu(){await api('/addCpu',{roomCode,hostId})}
+async function removeCpu(cpuId){await api('/removeCpu',{roomCode,hostId,cpuId})}
 
 // ── Start Game ──
 async function startGame(){
@@ -542,9 +784,29 @@ function connectWS(){
     stompClient.subscribe('/topic/room/'+roomCode+'/roundResult', msg=>{
       const r=JSON.parse(msg.body);
       if(r.discarded){
-        showRoundBanner('Bar Discarded!','No bids this round. +1 ¢ for everyone.');
+        showRoundBanner('Bar Discarded!','No bids this round. +1 ¢ for everyone.','Round '+(roundNum)+' ended');
       } else {
-        showRoundBanner('🔨 '+r.roundWinner+' Wins!','Paid '+r.bidPaid+' ¢ for a '+r.purity+'k purity gold bar. +1 ¢ for all.');
+        let winMsg='Paid '+r.bidPaid+' ¢ for a '+r.purity+'k purity gold bar. +1 ¢ for all.';
+        if(r.jackpotRound && r.jackpotAmount){
+          winMsg='Paid '+r.bidPaid+' ¢ for a '+r.purity+'k bar + 💰 '+r.jackpotAmount+' ¢ JACKPOT from the Vault!';
+          toast('🎰 VAULT JACKPOT! '+r.roundWinner+' wins '+r.jackpotAmount+' ¢ from the King\'s Vault! (max 20¢)',8000);
+        }
+        showRoundBanner(r.jackpotRound?'🎰 JACKPOT! '+r.roundWinner+' Wins!':'🔨 '+r.roundWinner+' Wins the Bid!',winMsg,'Round '+(roundNum)+' ended');
+      }
+    });
+    // Rage events (bribe, loan, taxation)
+    stompClient.subscribe('/topic/room/'+roomCode+'/rageEvent', msg=>{
+      const evt=JSON.parse(msg.body);
+      if(evt.type==='bribe'){
+        toast('🗡️ '+evt.message,4000);
+      } else if(evt.type==='loan'){
+        toast('🏦 '+evt.message,4000);
+        // Shake vault animation
+        const vault=document.getElementById('kingsVault');
+        vault.classList.add('shake');
+        setTimeout(()=>vault.classList.remove('shake'),600);
+      } else if(evt.type==='taxation'){
+        showTaxOverlay(evt);
       }
     });
     // Winner
@@ -595,6 +857,14 @@ function renderWaiting(state){
     if(p.cpu){
       li.classList.add('cpu');
       li.textContent='🤖 '+p.displayName;
+      // Add remove button for host
+      if(hostId && !state.started){
+        const removeBtn=document.createElement('button');
+        removeBtn.textContent='➖';
+        removeBtn.style.cssText='margin-left:8px;background:#e94560;color:#fff;border:none;border-radius:50%;width:22px;height:22px;font-size:.7rem;cursor:pointer;padding:0;line-height:22px';
+        removeBtn.onclick=()=>removeCpu(p.id);
+        li.appendChild(removeBtn);
+      }
     } else if(p.isYou){
       const lbl=document.createElement('span');
       lbl.textContent='⭐ ';
@@ -630,8 +900,53 @@ function getSeatPositions(count){
 // ── Render Game ──
 function renderGame(state){
   show('gameBoard');
-  document.getElementById('boardRoomCode').textContent='Room: '+state.roomCode;
+  currentGameMode=state.gameMode||'classic';
+  document.getElementById('boardRoomCode').textContent='Room: '+state.roomCode+(currentGameMode==='rage'?' 👑':'');
   document.getElementById('highBidAmount').textContent=state.currentHighBid;
+
+  // Rage mode: King's Vault
+  const vaultEl=document.getElementById('kingsVault');
+  const ragePanelEl=document.getElementById('ragePanel');
+  if(currentGameMode==='rage'){
+    vaultEl.style.display='flex';
+    const vaultAmt=state.kingsVault||0;
+    document.getElementById('vaultAmount').textContent=vaultAmt+' ¢';
+    // Glow effect when vault grows
+    if(vaultAmt>prevVaultAmount){
+      vaultEl.classList.add('glow');
+      setTimeout(()=>vaultEl.classList.remove('glow'),1500);
+    }
+    prevVaultAmount=vaultAmt;
+    // Tax countdown & jackpot info
+    const nextTax=state.nextTaxRound||0;
+    const nextJackpot=state.nextJackpotRound||0;
+    let countdownText;
+    if(nextTax===0) countdownText='💸 Tax this round!';
+    else countdownText='Tax in '+nextTax+' round'+(nextTax!==1?'s':'');
+    if(state.isJackpotRound) countdownText='🎰 JACKPOT ROUND!';
+    else if(nextJackpot===0) countdownText+=' | 🎰 Jackpot this round!';
+    else countdownText+=' | Jackpot in '+nextJackpot;
+    document.getElementById('taxCountdown').textContent=countdownText;
+    // Update tax confirmation status if overlay is showing
+    updateTaxConfirmStatus(state);
+    // Rage panel (only for non-spectators)
+    if(!state.isSpectator){
+      ragePanelEl.style.display='flex';
+      // Loan button: only enabled if player has < 3 cents
+      const me=state.players.find(p=>p.id===playerId);
+      const loanBtn=document.getElementById('loanBtn');
+      if(me&&me.cents<3&&vaultAmt>0){
+        loanBtn.disabled=false;loanBtn.style.opacity='1';
+      } else {
+        loanBtn.disabled=true;loanBtn.style.opacity='.4';
+      }
+    } else {
+      ragePanelEl.style.display='none';
+    }
+  } else {
+    vaultEl.style.display='none';
+    ragePanelEl.style.display='none';
+  }
 
   // Deed card
   const purityEl=document.getElementById('deedValue');
@@ -640,12 +955,20 @@ function renderGame(state){
     purityEl.textContent=state.currentGoldBarPurity+'k';
     // Show winning point once at game start
     if(!prevState) toast('🏆 Target Net Worth: '+state.winNetWorth+' — First to reach it wins!',5000);
-    goldBarCard.classList.remove('flip-in');
+    goldBarCard.classList.remove('flip-in','jackpot-card');
     void goldBarCard.offsetWidth;
     goldBarCard.classList.add('flip-in');
+    if(currentGameMode==='rage'&&state.isJackpotRound) goldBarCard.classList.add('jackpot-card');
     if(prevState&&prevState.currentGoldBarPurity!==state.currentGoldBarPurity){
       roundNum++;
-      showRoundBanner('🧈 New Gold Bar!','A '+state.currentGoldBarPurity+'k purity gold bar has appeared!');
+      const isJackpot=currentGameMode==='rage'&&state.isJackpotRound;
+      if(isJackpot){
+        toast('🎰 JACKPOT ROUND '+roundNum+'! Winner gets the gold bar + up to 20¢ from the Vault!',8000);
+        showRoundBanner('🎰 Jackpot Round!','A '+state.currentGoldBarPurity+'k gold bar — Key to the Vault! Winner takes up to 20¢ (Vault: '+((state.kingsVault||0))+' ¢)!','📢 Round '+roundNum+' starts now!');
+      } else {
+        toast('📢 A new round has started! Round '+roundNum,6000);
+        showRoundBanner('🧈 New Gold Bar!','A '+state.currentGoldBarPurity+'k purity gold bar has appeared!','📢 Round '+roundNum+' starts now!');
+      }
     }
   }
 
@@ -673,9 +996,10 @@ function renderGame(state){
   const sorted=[...state.players].sort((a,b)=>b.netWorth-a.netWorth);
   const top3=sorted.slice(0,3);
   const medals=['🥇','🥈','🥉'];
-  rankArea.innerHTML='<h4>🏆 Top Ranking</h4>'+top3.map((p,i)=>
-    `<div class="ranking-row"><span class="rank-medal">${medals[i]}</span><span class="rank-name">${p.displayName}${p.id===playerId?' (You)':''}</span><span class="rank-nw">${p.netWorth} 🧈</span></div>`
-  ).join('');
+  rankArea.innerHTML='<h4>🏆 Top Ranking</h4>'+top3.map((p,i)=>{
+    const bribeMark=(currentGameMode==='rage'&&p.bribed)?'⚠️ ':'';
+    return `<div class="ranking-row"><span class="rank-medal">${medals[i]}</span><span class="rank-name">${bribeMark}${p.displayName}${p.id===playerId?' (You)':''}</span><span class="rank-nw">${p.netWorth} 🧈</span></div>`;
+  }).join('');
 
   // Roundtable player seats
   const table=document.getElementById('roundtable');
@@ -708,7 +1032,9 @@ function renderGame(state){
       bidWinClass='bid-win-glow';
     }
 
+    const bribeIcon=(currentGameMode==='rage'&&p.bribed)?'<span class="bribe-indicator">⚠️</span>':'';
     card.innerHTML=`
+      ${bribeIcon}
       <div class="avatar">${p.cpu?'🤖':(p.connected?'🐜':'😴')}</div>
       ${p.id===playerId?'<span class="you-badge">YOU</span>':''}
       <div class="pname">${p.displayName}</div>
@@ -774,16 +1100,130 @@ async function doPass(){
 // ── Timer Bar ──
 function startTimerBar(){
   stopTimerBar();
-  let remaining=15;
+  let remaining=20;
   const fill=document.getElementById('timerFill');
   fill.style.width='100%';
   timerInterval=setInterval(()=>{
     remaining-=0.1;
     if(remaining<=0){remaining=0;stopTimerBar()}
-    fill.style.width=(remaining/15*100)+'%';
+    fill.style.width=(remaining/20*100)+'%';
   },100);
 }
 function stopTimerBar(){if(timerInterval){clearInterval(timerInterval);timerInterval=null}}
+
+// ── Rage Mode: Bribe Modal ──
+let selectedBribeTargetId=null;
+function openBribeModal(){
+  if(!prevState)return;
+  selectedBribeTargetId=null;
+  document.getElementById('bribeAmountStep').style.display='none';
+  const list=document.getElementById('bribeTargetList');
+  list.innerHTML='';
+  list.style.display='flex';
+  const me=prevState.players.find(p=>p.id===playerId);
+  const myMoney=me?me.cents:0;
+  prevState.players.forEach(p=>{
+    if(p.id===playerId)return;
+    const maxMore=(40-(p.bribeTaxPercent||0))/10;
+    const btn=document.createElement('button');
+    btn.className='bribe-target-btn';
+    btn.textContent=(p.cpu?'🤖 ':'')+p.displayName+(p.bribed?' ⚠️ '+p.bribeTaxPercent+'%':'');
+    if(maxMore<=0){
+      btn.disabled=true;btn.style.opacity='.4';
+      btn.textContent+=' (MAX)';
+    }
+    btn.onclick=()=>selectBribeTarget(p.id,p.displayName,maxMore,myMoney,p.bribeTaxPercent||0);
+    list.appendChild(btn);
+  });
+  document.getElementById('bribeModal').classList.add('active');
+}
+function selectBribeTarget(targetId,targetName,maxMore,myMoney,currentBribe){
+  selectedBribeTargetId=targetId;
+  document.getElementById('bribeTargetList').style.display='none';
+  document.getElementById('bribeAmountStep').style.display='flex';
+  document.getElementById('bribeTargetName').textContent=targetName;
+  const maxAmount=Math.min(4,maxMore,myMoney);
+  document.getElementById('bribeCapInfo').textContent='Current bribe tax: '+currentBribe+'% | Max additional: '+(maxMore*10)+'% | You have: '+myMoney+'¢';
+  const btnsDiv=document.getElementById('bribeAmountBtns');
+  btnsDiv.innerHTML='';
+  for(let i=1;i<=4;i++){
+    const btn=document.createElement('button');
+    btn.textContent=i+'¢ (+'+i*10+'%)';
+    btn.disabled=i>maxAmount;
+    btn.onclick=()=>doBribe(targetId,i);
+    btnsDiv.appendChild(btn);
+  }
+}
+function closeBribeModal(){
+  document.getElementById('bribeModal').classList.remove('active');
+  selectedBribeTargetId=null;
+}
+async function doBribe(targetId,amount){
+  closeBribeModal();
+  const res=await api('/bribe',{roomCode,playerId,targetId,amount});
+  if(res.error)toast('❌ '+res.error);
+}
+
+// ── Rage Mode: Loan Modal ──
+function openLoanModal(){
+  if(!prevState)return;
+  const vault=prevState.kingsVault||0;
+  document.getElementById('loanVaultDisplay').textContent=vault;
+  document.getElementById('loanAmountInput').max=vault;
+  document.getElementById('loanAmountInput').value=Math.min(vault,3);
+  document.getElementById('loanModal').classList.add('active');
+}
+function closeLoanModal(){document.getElementById('loanModal').classList.remove('active')}
+async function doLoan(){
+  const amount=parseInt(document.getElementById('loanAmountInput').value)||1;
+  closeLoanModal();
+  const res=await api('/loan',{roomCode,playerId,amount});
+  if(res.error)toast('❌ '+res.error);
+  else toast('🏦 Loan taken! Lost '+res.penalty+' Karats.',4000);
+}
+
+// ── Rage Mode: Tax Overlay ──
+let taxConfirmed=false;
+function showTaxOverlay(evt){
+  taxConfirmed=false;
+  const overlay=document.getElementById('taxOverlay');
+  const details=document.getElementById('taxDetails');
+  const confirmBtn=document.getElementById('taxConfirmBtn');
+  const confirmStatus=document.getElementById('taxConfirmStatus');
+  confirmBtn.disabled=false;
+  confirmBtn.textContent='✅ I\'ve Read It — Continue';
+  confirmStatus.textContent='';
+  let html='<p style="color:#ffd700;font-size:1rem;margin:8px 0">Total collected: <b>'+evt.totalCollected+' ¢</b> → Vault: <b>'+evt.vaultTotal+' ¢</b></p>';
+  (evt.details||[]).forEach(d=>{
+    const bribeTag=d.hadBribe?' <span style="color:#e94560">(+bribe!)</span>':'';
+    html+='<p class="tax-detail">'+d.playerName+': -'+d.taxAmount+' ¢ ('+d.taxPercent+'% tax)'+bribeTag+'</p>';
+  });
+  details.innerHTML=html;
+  overlay.classList.add('active');
+  // Reset auditor animation
+  const auditor=document.getElementById('taxAuditor');
+  auditor.style.animation='none';
+  void auditor.offsetWidth;
+  auditor.style.animation='auditorWalk 3s ease-in-out';
+  // Overlay stays until player confirms (or auto-dismissed when state says no longer waiting)
+}
+async function confirmTaxRead(){
+  if(taxConfirmed)return;
+  taxConfirmed=true;
+  const btn=document.getElementById('taxConfirmBtn');
+  btn.disabled=true;
+  btn.textContent='✅ Confirmed — Waiting for others...';
+  await api('/confirmTax',{roomCode,playerId});
+}
+function updateTaxConfirmStatus(state){
+  if(!state.waitingForTaxConfirmation){
+    // Tax phase done, close overlay
+    document.getElementById('taxOverlay').classList.remove('active');
+    return;
+  }
+  const status=document.getElementById('taxConfirmStatus');
+  if(status) status.textContent=(state.taxConfirmedCount||0)+'/'+( state.taxTotalPlayers||0)+' players confirmed';
+}
 </script>
 </body>
 </html>

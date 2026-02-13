@@ -20,10 +20,13 @@ public class GameService {
         this.messagingTemplate = messagingTemplate;
     }
 
-    public GameRoom createRoom(String hostName) {
+    public GameRoom createRoom(String hostName, String gameMode) {
         String code = generateRoomCode();
         String hostId = UUID.randomUUID().toString();
         GameRoom room = new GameRoom(code, hostId);
+        if ("rage".equalsIgnoreCase(gameMode)) {
+            room.setGameMode("rage");
+        }
         Player host = new Player(hostId, hostName, false);
         room.getPlayers().add(host);
         rooms.put(code, room);
@@ -38,7 +41,11 @@ public class GameService {
         List<Map<String, String>> available = new ArrayList<>();
         rooms.forEach((code, room) -> {
             if (!room.isFinished()) {
-                available.add(Map.of("roomCode", code, "hostName", room.getPlayers().get(0).getDisplayName()));
+                available.add(Map.of(
+                        "roomCode", code,
+                        "hostName", room.getPlayers().get(0).getDisplayName(),
+                        "gameMode", room.getGameMode()
+                ));
             }
         });
         return available;
@@ -111,6 +118,16 @@ public class GameService {
         return cpu;
     }
 
+    public boolean removeCpu(String code, String hostId, String cpuId) {
+        GameRoom room = rooms.get(code);
+        if (room == null || room.isStarted() || !room.getHostId().equals(hostId)) return false;
+        Player cpu = room.getPlayerById(cpuId);
+        if (cpu == null || !cpu.isCpu()) return false;
+        room.getPlayers().remove(cpu);
+        broadcastState(room);
+        return true;
+    }
+
     public boolean updateSettings(String code, String hostId, int winNetWorth, int startingCents) {
         GameRoom room = rooms.get(code);
         if (room == null || room.isStarted() || !room.getHostId().equals(hostId)) return false;
@@ -131,9 +148,10 @@ public class GameService {
         }
         room.setStarted(true);
         room.setStartingPlayerIndex(0);
+        room.setRoundNumber(0);
         // Notify all players that game has started
         messagingTemplate.convertAndSend("/topic/room/" + room.getRoomCode() + "/gameStarted",
-                (Object) Map.of("started", true));
+                (Object) Map.of("started", true, "gameMode", room.getGameMode()));
         startNewRound(room);
         return true;
     }
@@ -181,6 +199,91 @@ public class GameService {
         return true;
     }
 
+    // ── Rage Mode: Bribe ──
+    public synchronized Map<String, Object> bribePlayer(String code, String briberId, String targetId, int amount) {
+        GameRoom room = rooms.get(code);
+        if (room == null || !room.isRageMode() || room.isFinished() || !room.isStarted()) {
+            return Map.of("error", "Cannot bribe in this room");
+        }
+        Player briber = room.getPlayerById(briberId);
+        Player target = room.getPlayerById(targetId);
+        if (briber == null || target == null || briber.getId().equals(target.getId())) {
+            return Map.of("error", "Invalid bribe target");
+        }
+        if (amount < 1 || amount > 4) {
+            return Map.of("error", "Bribe amount must be between 1 and 4");
+        }
+        if (briber.getCents() < amount) {
+            return Map.of("error", "Not enough Ant-cents to bribe");
+        }
+        // Cap: target's bribe tax can't exceed 40% (each cent = +10%)
+        int maxAdditional = (40 - target.getBribeTaxPercent()) / 10;
+        if (maxAdditional <= 0) {
+            return Map.of("error", "Target already at max bribe tax (40%)");
+        }
+        int effectiveAmount = Math.min(amount, maxAdditional);
+
+        // Deduct cents from briber, add to vault
+        briber.setCents(briber.getCents() - effectiveAmount);
+        room.setKingsVault(room.getKingsVault() + effectiveAmount);
+
+        // Add 10% tax per cent to target (capped at 40%)
+        target.setBribeTaxPercent(target.getBribeTaxPercent() + effectiveAmount * 10);
+
+        // Anonymous notification
+        messagingTemplate.convertAndSend("/topic/room/" + room.getRoomCode() + "/rageEvent",
+                (Object) Map.of(
+                        "type", "bribe",
+                        "message", "Someone whispered to the King... " + target.getDisplayName() + "'s tax has increased by +" + (effectiveAmount * 10) + "%!",
+                        "targetId", targetId
+                ));
+
+        broadcastState(room);
+        return Map.of("status", "bribed", "effectiveAmount", effectiveAmount);
+    }
+
+    // ── Rage Mode: King's Loan ──
+    public synchronized Map<String, Object> takeLoan(String code, String playerId, int requestedAmount) {
+        GameRoom room = rooms.get(code);
+        if (room == null || !room.isRageMode() || room.isFinished() || !room.isStarted()) {
+            return Map.of("error", "Cannot take loan in this room");
+        }
+        Player player = room.getPlayerById(playerId);
+        if (player == null) {
+            return Map.of("error", "Player not found");
+        }
+        if (player.getCents() >= 3) {
+            return Map.of("error", "You must have fewer than 3 Ant-cents to take a loan");
+        }
+        if (requestedAmount < 1) {
+            return Map.of("error", "Must request at least 1 Ant-cent");
+        }
+        if (room.getKingsVault() < requestedAmount) {
+            return Map.of("error", "Not enough Ant-cents in the King's Vault");
+        }
+
+        // Transfer from vault to player
+        room.setKingsVault(room.getKingsVault() - requestedAmount);
+        player.setCents(player.getCents() + requestedAmount);
+
+        // Penalty: 35% of net worth (minimum 3 karats)
+        int penalty = Math.max(3, (int) Math.floor(player.getNetWorth() * 0.35));
+        player.setNetWorth(Math.max(0, player.getNetWorth() - penalty));
+
+        // Public notification
+        messagingTemplate.convertAndSend("/topic/room/" + room.getRoomCode() + "/rageEvent",
+                (Object) Map.of(
+                        "type", "loan",
+                        "message", player.getDisplayName() + " took a desperate loan! Their net worth dropped by " + penalty + "!",
+                        "playerId", playerId,
+                        "penalty", penalty,
+                        "amount", requestedAmount
+                ));
+
+        broadcastState(room);
+        return Map.of("status", "loan_taken", "penalty", penalty, "amount", requestedAmount);
+    }
+
     private void refundHighBidder(GameRoom room) {
         if (room.getCurrentHighBidderId() != null) {
             Player prev = room.getPlayerById(room.getCurrentHighBidderId());
@@ -195,6 +298,10 @@ public class GameService {
         String winnerId = room.getCurrentHighBidderId();
         Map<String, Object> roundResult = new HashMap<>();
 
+        // Check if this is a Jackpot Round (every 10th round in Rage mode)
+        boolean isJackpotRound = room.isRageMode() && room.getRoundNumber() > 0 && room.getRoundNumber() % 11 == 0;
+        roundResult.put("jackpotRound", isJackpotRound);
+
         if (winnerId != null) {
             Player winner = room.getPlayerById(winnerId);
             // Winner already paid (money deducted during bid); add purity to net worth
@@ -202,6 +309,14 @@ public class GameService {
             roundResult.put("roundWinner", winner.getDisplayName());
             roundResult.put("purity", room.getCurrentGoldBarPurity());
             roundResult.put("bidPaid", room.getCurrentHighBid());
+
+            // Vault Jackpot: winner gets vault cents on every 11th round (max 20)
+            if (isJackpotRound && room.getKingsVault() > 0) {
+                int jackpotAmount = Math.min(room.getKingsVault(), 20);
+                winner.setCents(winner.getCents() + jackpotAmount);
+                room.setKingsVault(room.getKingsVault() - jackpotAmount);
+                roundResult.put("jackpotAmount", jackpotAmount);
+            }
 
             // Check win condition
             if (winner.getNetWorth() >= room.getWinNetWorth()) {
@@ -218,6 +333,7 @@ public class GameService {
             roundResult.put("roundWinner", "none");
             roundResult.put("purity", room.getCurrentGoldBarPurity());
             roundResult.put("discarded", true);
+            // Jackpot round with no bids: vault stays, no jackpot awarded
         }
 
         // Income phase: +1 cent for every player
@@ -230,12 +346,111 @@ public class GameService {
         // Advance starting player clockwise
         room.setStartingPlayerIndex((room.getStartingPlayerIndex() + 1) % room.getPlayers().size());
 
-        // Small delay before next round
-        scheduler.schedule(() -> startNewRound(room), 2, TimeUnit.SECONDS);
+        // Rage mode: Check if taxation phase should trigger (every 5 rounds)
+        if (room.isRageMode() && room.getRoundNumber() % 5 == 0 && room.getRoundNumber() > 0) {
+            // Delay taxation phase to show after round result (longer delay so players can read round result first)
+            scheduler.schedule(() -> executeTaxationPhase(room), 5, TimeUnit.SECONDS);
+        } else {
+            // Delay before next round for players to read results
+            scheduler.schedule(() -> startNewRound(room), 5, TimeUnit.SECONDS);
+        }
+    }
+
+    // ── Rage Mode: Taxation Phase ──
+    private synchronized void executeTaxationPhase(GameRoom room) {
+        if (room.isFinished()) return;
+
+        room.setTaxationPhaseActive(true);
+        Map<String, Object> taxResult = new HashMap<>();
+        List<Map<String, Object>> taxDetails = new ArrayList<>();
+        int totalTaxCollected = 0;
+
+        for (Player p : room.getPlayers()) {
+            int baseTaxPercent = 25;
+            int bribeTax = p.getBribeTaxPercent();
+            int totalTaxPercent = baseTaxPercent + bribeTax;
+            int taxAmount = (int) Math.floor(p.getCents() * totalTaxPercent / 100.0);
+
+            if (taxAmount > p.getCents()) {
+                taxAmount = p.getCents();
+            }
+
+            p.setCents(p.getCents() - taxAmount);
+            totalTaxCollected += taxAmount;
+
+            Map<String, Object> detail = new HashMap<>();
+            detail.put("playerId", p.getId());
+            detail.put("playerName", p.getDisplayName());
+            detail.put("taxPercent", totalTaxPercent);
+            detail.put("taxAmount", taxAmount);
+            detail.put("hadBribe", bribeTax > 0);
+            taxDetails.add(detail);
+
+            // Reset bribe tax after taxation
+            p.setBribeTaxPercent(0);
+        }
+
+        room.setKingsVault(room.getKingsVault() + totalTaxCollected);
+        room.setTaxationPhaseActive(false);
+
+        taxResult.put("type", "taxation");
+        taxResult.put("details", taxDetails);
+        taxResult.put("totalCollected", totalTaxCollected);
+        taxResult.put("vaultTotal", room.getKingsVault());
+
+        // Set waiting for confirmation BEFORE sending events so frontend doesn't close overlay
+        room.setWaitingForTaxConfirmation(true);
+        room.getTaxConfirmedPlayerIds().clear();
+        // Auto-confirm for CPU players
+        for (Player p : room.getPlayers()) {
+            if (p.isCpu()) {
+                room.getTaxConfirmedPlayerIds().add(p.getId());
+            }
+        }
+
+        messagingTemplate.convertAndSend("/topic/room/" + room.getRoomCode() + "/rageEvent", (Object) taxResult);
+        broadcastState(room);
+        // Fallback: auto-continue after 30 seconds if not all confirmed
+        scheduler.schedule(() -> {
+            synchronized (this) {
+                if (room.isWaitingForTaxConfirmation() && !room.isFinished()) {
+                    room.setWaitingForTaxConfirmation(false);
+                    room.getTaxConfirmedPlayerIds().clear();
+                    broadcastState(room);
+                    startNewRound(room);
+                }
+            }
+        }, 30, TimeUnit.SECONDS);
+    }
+
+    // ── Rage Mode: Confirm Tax ──
+    public synchronized Map<String, Object> confirmTax(String code, String playerId) {
+        GameRoom room = rooms.get(code);
+        if (room == null || !room.isWaitingForTaxConfirmation()) {
+            return Map.of("error", "Not waiting for tax confirmation");
+        }
+        room.getTaxConfirmedPlayerIds().add(playerId);
+        broadcastState(room);
+
+        // Check if all human players confirmed
+        long humanCount = room.getPlayers().stream().filter(p -> !p.isCpu()).count();
+        long confirmedHumans = room.getPlayers().stream()
+                .filter(p -> !p.isCpu() && room.getTaxConfirmedPlayerIds().contains(p.getId()))
+                .count();
+        if (confirmedHumans >= humanCount) {
+            room.setWaitingForTaxConfirmation(false);
+            room.getTaxConfirmedPlayerIds().clear();
+            broadcastState(room);
+            startNewRound(room);
+        }
+        return Map.of("status", "confirmed");
     }
 
     private void startNewRound(GameRoom room) {
         if (room.isFinished()) return;
+
+        // Increment round number
+        room.setRoundNumber(room.getRoundNumber() + 1);
 
         // Reset round state
         int purity = random.nextInt(24) + 1;
@@ -246,6 +461,9 @@ public class GameService {
         for (Player p : room.getPlayers()) {
             p.setPassedThisRound(false);
         }
+
+        // CPU Rage mode actions (bribing & loans) at start of each round
+        executeCpuRageActions(room);
 
         broadcastState(room);
         startTurnTimer(room);
@@ -274,40 +492,187 @@ public class GameService {
         Player current = room.getPlayers().get(room.getCurrentPlayerIndex());
         if (!current.isCpu()) return;
 
-        // CPU AI: Greedy - bid if card value is high (>=12k) and has 30% more than current bid
-        // Increased delay for more human-like play
         scheduler.schedule(() -> {
             synchronized (this) {
                 if (room.isFinished()) return;
                 Player cpu = room.getPlayers().get(room.getCurrentPlayerIndex());
                 if (!cpu.getId().equals(current.getId())) return;
-
-                int minBid = room.getCurrentHighBid() + 1;
-                boolean shouldBid = room.getCurrentGoldBarPurity() >= 12
-                        && cpu.getCents() >= minBid
-                        && cpu.getCents() >= (int) (room.getCurrentHighBid() * 1.3) + 1;
-
-                // Also bid on lower cards if very cheap
-                if (!shouldBid && room.getCurrentHighBid() == 0 && cpu.getCents() >= 1) {
-                    shouldBid = random.nextInt(3) == 0; // 33% chance to bid 1 on any card
-                }
-
-                if (shouldBid) {
-                    int bid = minBid;
-                    placeBid(room.getRoomCode(), cpu.getId(), bid);
-                } else {
-                    pass(room.getRoomCode(), cpu.getId());
-                }
+                executeCpuTurn(room, cpu);
             }
         }, 2 + random.nextInt(3), TimeUnit.SECONDS);
     }
 
+    // ── Advanced CPU AI ──
+    private void executeCpuTurn(GameRoom room, Player cpu) {
+        int purity = room.getCurrentGoldBarPurity();
+        int minBid = room.getCurrentHighBid() + 1;
+        int myCents = cpu.getCents();
+        int myNW = cpu.getNetWorth();
+        int targetNW = room.getWinNetWorth();
+        int activeBidders = room.activeBiddersCount();
+
+        // Find the leading human player and closest competitor
+        Player leadingHuman = null;
+        Player closestRival = null;
+        int maxHumanNW = -1;
+        int maxRivalNW = -1;
+        for (Player p : room.getPlayers()) {
+            if (!p.isCpu() && p.getNetWorth() > maxHumanNW) {
+                maxHumanNW = p.getNetWorth();
+                leadingHuman = p;
+            }
+            if (!p.getId().equals(cpu.getId()) && p.getNetWorth() > maxRivalNW) {
+                maxRivalNW = p.getNetWorth();
+                closestRival = p;
+            }
+        }
+
+        // === STRATEGY 1: Win condition — if this bar wins the game, go all-in ===
+        if (myNW + purity >= targetNW && myCents >= minBid) {
+            int aggressiveBid = Math.min(myCents, minBid + (int)(myCents * 0.6));
+            placeBid(room.getRoomCode(), cpu.getId(), Math.max(minBid, aggressiveBid));
+            return;
+        }
+
+        // === STRATEGY 2: Block human from winning ===
+        if (leadingHuman != null && leadingHuman.getNetWorth() + purity >= targetNW) {
+            // Human could win this round — block aggressively
+            if (myCents >= minBid) {
+                // Willing to spend up to 80% of cents to block
+                int blockBid = Math.min(myCents, minBid + (int)(myCents * 0.5));
+                placeBid(room.getRoomCode(), cpu.getId(), Math.max(minBid, blockBid));
+                return;
+            }
+        }
+
+        // === STRATEGY 3: Block any rival close to winning ===
+        if (closestRival != null && closestRival.getNetWorth() + purity >= targetNW && myCents >= minBid) {
+            int blockBid = Math.min(myCents, minBid + (int)(myCents * 0.4));
+            placeBid(room.getRoomCode(), cpu.getId(), Math.max(minBid, blockBid));
+            return;
+        }
+
+        // === Value assessment ===
+        // How valuable is this card relative to cost?
+        double valueRatio = (double) purity / Math.max(1, minBid);
+        // How close am I to winning? (urgency factor)
+        double progressRatio = (double) myNW / targetNW;
+        // How much of my money would this cost?
+        double costRatio = (minBid > 0) ? (double) minBid / Math.max(1, myCents) : 0;
+
+        // Jackpot round bonus: vault cents make the round much more valuable
+        boolean isJackpotRound = room.isRageMode() && room.getRoundNumber() > 0 && room.getRoundNumber() % 11 == 0;
+        int effectiveValue = purity;
+        if (isJackpotRound && room.getKingsVault() > 0) {
+            // Jackpot rounds are extremely valuable — factor in vault cents
+            effectiveValue += room.getKingsVault();
+            valueRatio = (double) effectiveValue / Math.max(1, minBid);
+        }
+
+        // === STRATEGY 4: High-value cards — bid aggressively ===
+        if (purity >= 18 && myCents >= minBid && costRatio < 0.85) {
+            // Premium cards: bid with strategic increment
+            int increment = Math.max(1, (int)(myCents * 0.15));
+            int bid = Math.min(myCents, minBid + increment);
+            placeBid(room.getRoomCode(), cpu.getId(), bid);
+            return;
+        }
+
+        // === STRATEGY 5: Good value — bid if price is right ===
+        if (purity >= 10 && valueRatio >= 1.5 && myCents >= minBid && costRatio < 0.7) {
+            int increment = Math.max(1, (int)(myCents * 0.1));
+            int bid = Math.min(myCents, minBid + increment);
+            placeBid(room.getRoomCode(), cpu.getId(), bid);
+            return;
+        }
+
+        // === STRATEGY 6: Cheap steals — always contest low bids ===
+        if (room.getCurrentHighBid() == 0 && myCents >= 1) {
+            // Opening bid: bid on anything worth 5+ purity
+            if (purity >= 5) {
+                placeBid(room.getRoomCode(), cpu.getId(), 1);
+                return;
+            }
+            // Low purity: still bid sometimes to drain opponents
+            if (random.nextInt(3) == 0) {
+                placeBid(room.getRoomCode(), cpu.getId(), 1);
+                return;
+            }
+        }
+
+        // === STRATEGY 7: Mid-game pressure — outbid if affordable ===
+        if (purity >= 8 && minBid <= 3 && myCents >= minBid && costRatio < 0.5) {
+            placeBid(room.getRoomCode(), cpu.getId(), minBid);
+            return;
+        }
+
+        // === STRATEGY 8: Endgame aggression — when close to winning, bid more ===
+        if (progressRatio >= 0.6 && purity >= 6 && myCents >= minBid && costRatio < 0.6) {
+            int bid = Math.min(myCents, minBid + 1);
+            placeBid(room.getRoomCode(), cpu.getId(), bid);
+            return;
+        }
+
+        // === STRATEGY 9: Force opponents to overpay ===
+        // If only 2 bidders left and bid is still low relative to card value, push the price up
+        if (activeBidders == 2 && purity >= 10 && valueRatio >= 2.0 && myCents >= minBid && costRatio < 0.5) {
+            placeBid(room.getRoomCode(), cpu.getId(), minBid);
+            return;
+        }
+
+        // === Default: Pass ===
+        pass(room.getRoomCode(), cpu.getId());
+    }
+
+    // ── CPU Rage Mode Actions (bribing & loans) — called periodically ──
+    private void executeCpuRageActions(GameRoom room) {
+        if (!room.isRageMode() || room.isFinished() || !room.isStarted()) return;
+
+        for (Player cpu : room.getPlayers()) {
+            if (!cpu.isCpu()) continue;
+
+            // === Bribe Strategy: target the leading human player before tax rounds ===
+            int roundsUntilTax = room.getRoundNumber() % 5;
+            int roundsLeft = (roundsUntilTax == 0) ? 0 : 5 - roundsUntilTax;
+            if (roundsLeft <= 2 && roundsLeft > 0 && cpu.getCents() >= 2) {
+                // Find leading human
+                Player target = null;
+                int maxNW = -1;
+                for (Player p : room.getPlayers()) {
+                    if (!p.isCpu() && !p.getId().equals(cpu.getId()) && p.getNetWorth() > maxNW && p.getBribeTaxPercent() < 40) {
+                        maxNW = p.getNetWorth();
+                        target = p;
+                    }
+                }
+                if (target != null && random.nextInt(3) == 0) {
+                    int maxBribe = Math.min(cpu.getCents(), Math.min(4, (40 - target.getBribeTaxPercent()) / 10));
+                    if (maxBribe >= 1) {
+                        int bribeAmt = Math.min(maxBribe, 1 + random.nextInt(Math.min(3, maxBribe)));
+                        bribePlayer(room.getRoomCode(), cpu.getId(), target.getId(), bribeAmt);
+                    }
+                }
+            }
+
+            // === Loan Strategy: take loans when broke and vault has money ===
+            if (cpu.getCents() < 2 && room.getKingsVault() >= 2 && cpu.getNetWorth() > 10) {
+                int loanAmt = Math.min(room.getKingsVault(), 3 + random.nextInt(3));
+                if (loanAmt >= 1) {
+                    takeLoan(room.getRoomCode(), cpu.getId(), loanAmt);
+                }
+            }
+        }
+    }
+
     private void startTurnTimer(GameRoom room) {
         cancelTimer(room);
+        // Capture the current player's ID so the timer only auto-passes the correct player
+        final String timerPlayerId = room.getPlayers().get(room.getCurrentPlayerIndex()).getId();
         ScheduledFuture<?> timer = scheduler.schedule(() -> {
             synchronized (this) {
                 if (room.isFinished()) return;
+                // Verify the turn hasn't moved to a different player
                 Player current = room.getPlayers().get(room.getCurrentPlayerIndex());
+                if (!current.getId().equals(timerPlayerId)) return;
                 // Auto-pass on timeout
                 pass(room.getRoomCode(), current.getId());
             }
@@ -331,6 +696,23 @@ public class GameService {
         state.put("currentHighBid", room.getCurrentHighBid());
         state.put("currentHighBidderId", room.getCurrentHighBidderId());
         state.put("winnerId", room.getWinnerId());
+        state.put("gameMode", room.getGameMode());
+        state.put("roundNumber", room.getRoundNumber());
+
+        // Rage mode fields
+        if (room.isRageMode()) {
+            state.put("kingsVault", room.getKingsVault());
+            int taxRemainder = room.getRoundNumber() % 5;
+            state.put("nextTaxRound", taxRemainder == 0 ? 0 : 5 - taxRemainder);
+            state.put("waitingForTaxConfirmation", room.isWaitingForTaxConfirmation());
+            state.put("taxConfirmedCount", room.getTaxConfirmedPlayerIds().size());
+            state.put("taxTotalPlayers", room.getPlayers().size());
+            // Jackpot round indicator
+            boolean isJackpot = room.getRoundNumber() > 0 && room.getRoundNumber() % 11 == 0;
+            state.put("isJackpotRound", isJackpot);
+            int jackpotRemainder = room.getRoundNumber() % 11;
+            state.put("nextJackpotRound", jackpotRemainder == 0 ? 0 : 11 - jackpotRemainder);
+        }
 
         Player currentPlayer = room.isStarted() && !room.isFinished()
                 ? room.getPlayers().get(room.getCurrentPlayerIndex()) : null;
@@ -345,6 +727,11 @@ public class GameService {
             pm.put("cpu", p.isCpu());
             pm.put("passed", p.isPassedThisRound());
             pm.put("connected", p.isConnected());
+            // Rage mode: show bribe indicator
+            if (room.isRageMode()) {
+                pm.put("bribed", p.getBribeTaxPercent() > 0);
+                pm.put("bribeTaxPercent", p.getBribeTaxPercent());
+            }
             // Only show own cents
             if (p.getId().equals(playerId)) {
                 pm.put("cents", p.getCents());

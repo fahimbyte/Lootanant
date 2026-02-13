@@ -21,12 +21,14 @@ public class GameController {
     @PostMapping("/create")
     public ResponseEntity<?> createRoom(@RequestBody Map<String, String> body) {
         String hostName = body.getOrDefault("name", "Host");
-        GameRoom room = gameService.createRoom(hostName);
+        String gameMode = body.getOrDefault("gameMode", "classic");
+        GameRoom room = gameService.createRoom(hostName, gameMode);
         Player host = room.getPlayers().get(0);
         return ResponseEntity.ok(Map.of(
                 "roomCode", room.getRoomCode(),
                 "playerId", host.getId(),
-                "hostId", room.getHostId()
+                "hostId", room.getHostId(),
+                "gameMode", room.getGameMode()
         ));
     }
 
@@ -41,7 +43,8 @@ public class GameController {
         String name = body.getOrDefault("name", "Player");
         Player player = gameService.joinRoom(code, name);
         if (player == null) return ResponseEntity.badRequest().body(Map.of("error", "Cannot join room"));
-        return ResponseEntity.ok(Map.of("playerId", player.getId()));
+        GameRoom room = gameService.getRoom(code);
+        return ResponseEntity.ok(Map.of("playerId", player.getId(), "gameMode", room != null ? room.getGameMode() : "classic"));
     }
 
     @PostMapping("/addCpu")
@@ -51,6 +54,16 @@ public class GameController {
         Player cpu = gameService.addCpu(code, hostId);
         if (cpu == null) return ResponseEntity.badRequest().body(Map.of("error", "Cannot add CPU"));
         return ResponseEntity.ok(Map.of("cpuName", cpu.getDisplayName()));
+    }
+
+    @PostMapping("/removeCpu")
+    public ResponseEntity<?> removeCpu(@RequestBody Map<String, String> body) {
+        String code = body.get("roomCode");
+        String hostId = body.get("hostId");
+        String cpuId = body.get("cpuId");
+        boolean ok = gameService.removeCpu(code, hostId, cpuId);
+        if (!ok) return ResponseEntity.badRequest().body(Map.of("error", "Cannot remove CPU"));
+        return ResponseEntity.ok(Map.of("status", "removed"));
     }
 
     @PostMapping("/rename")
@@ -125,6 +138,42 @@ public class GameController {
         boolean ok = gameService.pass(code, playerId);
         if (!ok) return ResponseEntity.badRequest().body(Map.of("error", "Cannot pass"));
         return ResponseEntity.ok(Map.of("status", "passed"));
+    }
+
+    @PostMapping("/bribe")
+    public ResponseEntity<?> bribe(@RequestBody Map<String, Object> body) {
+        String code = (String) body.get("roomCode");
+        String briberId = (String) body.get("playerId");
+        String targetId = (String) body.get("targetId");
+        int amount = ((Number) body.get("amount")).intValue();
+        Map<String, Object> result = gameService.bribePlayer(code, briberId, targetId, amount);
+        if (result.containsKey("error")) {
+            return ResponseEntity.badRequest().body(result);
+        }
+        return ResponseEntity.ok(result);
+    }
+
+    @PostMapping("/confirmTax")
+    public ResponseEntity<?> confirmTax(@RequestBody Map<String, String> body) {
+        String code = body.get("roomCode");
+        String pid = body.get("playerId");
+        Map<String, Object> result = gameService.confirmTax(code, pid);
+        if (result.containsKey("error")) {
+            return ResponseEntity.badRequest().body(result);
+        }
+        return ResponseEntity.ok(result);
+    }
+
+    @PostMapping("/loan")
+    public ResponseEntity<?> loan(@RequestBody Map<String, Object> body) {
+        String code = (String) body.get("roomCode");
+        String pid = (String) body.get("playerId");
+        int amount = ((Number) body.get("amount")).intValue();
+        Map<String, Object> result = gameService.takeLoan(code, pid, amount);
+        if (result.containsKey("error")) {
+            return ResponseEntity.badRequest().body(result);
+        }
+        return ResponseEntity.ok(result);
     }
 
     @GetMapping("/state/{roomCode}/{playerId}")

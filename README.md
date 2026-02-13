@@ -8,7 +8,16 @@ A real-time, web-based multiplayer auction board game built with **Java/Spring B
 
 The King is hoarding the world's purest Gold Bars. As a budding thief, your goal is to prove you have the strategic mind to become his Lieutenant — the **Lootanant**.
 
-### Rules at a Glance
+### Game Modes
+
+| Mode | Description |
+|------|-------------|
+| **🧈 Classic** | The original auction game — pure bidding strategy |
+| **👑 Rage** | Classic rules + King's Vault, taxation, anonymous bribing, and desperate loans |
+
+When creating a room, the host selects the game mode. All players in the room play the same mode.
+
+### Classic Mode — Rules at a Glance
 
 | Concept | Detail |
 |---------|--------|
@@ -23,11 +32,49 @@ The King is hoarding the world's purest Gold Bars. As a budding thief, your goal
 | **Income** | +1 ¢ for **all** players after each round (sold or discarded) |
 | **Victory** | First player to reach **50 Net Worth** wins! (configurable) |
 
+### Rage Mode — Additional Rules
+
+Rage mode includes all Classic rules **plus** the following:
+
+#### 🏦 The King's Vault & Taxation (Every 5 Rounds)
+
+- **Trigger:** Every 5th round (after the auction), a **Taxation Phase** begins.
+- **Base Tax:** Every player is taxed **25%** of their total Ant-cents (rounded down).
+- **The Vault:** All taxed cents are moved into a central **King's Vault**, displayed as a golden chest icon on screen.
+- **Animation:** A "King's Auditor" (an ant in a crown) walks across the screen collecting cents.
+
+#### 🗡️ Anonymous Bribing (The Sabotage)
+
+- **Action:** Any player can click the **"Bribe"** button at any time.
+- **Cost:** 1 Ant-cent = +10% tax on a target player for the next Taxation Phase.
+- **Anonymity:** The UI displays: *"Someone whispered to the King... [Player Name]'s tax has increased!"* but never reveals who paid.
+- **Stacking:** Bribes stack but are capped at **40%** extra (total max tax: **65%**).
+- **Indicator:** A ⚠️ icon appears next to bribed players in the leaderboard and player cards.
+- Bribe money goes directly into the King's Vault.
+
+#### 🏦 Take a Loan (The Recovery)
+
+- **Eligibility:** Players with **fewer than 3 Ant-cents** can take a loan.
+- **Benefit:** Player receives desired Ant-cents from the King's Vault (if available).
+- **Penalty:** Deduct **35%** of the player's Net Worth (minimum penalty: 3 Karats).
+- **Public:** A notification is displayed: *"[Player Name] took a desperate loan! Their net worth dropped by [X]!"*
+- **Animation:** The Vault shakes when a loan is taken.
+
+#### 🎰 Vault Jackpot (The Money Returns!)
+
+- **Timing:** Every **11th round** (Round 11, 22, 33…) is a **Jackpot Round**.
+- **Key to the Vault:** The gold bar becomes the "Key to the Vault" — the card glows orange.
+- **Winner Takes All:** Whoever wins the auction gets the gold bar's Karats **PLUS up to 20 Ant-cents** from the King's Vault.
+- **Vault Resets:** After the jackpot is claimed, any awarded cents are removed from the vault (vault resets to 0 if 20 or fewer cents were in it).
+- **No Winner?** If nobody bids on a Jackpot Round, the vault keeps its money until the next one.
+- **Purpose:** Prevents the "Money Drain" problem — taxes and bribes remove money from players, and the Jackpot puts it back in a fun, high-stakes way.
+
 ### Strategic Depth
 
 - You can see opponents' **Net Worth** but **not** their money — bluffing is key.
 - Overbidding drains your funds; underbidding lets opponents grab high-value gold bars cheaply.
 - Sometimes passing is the smartest move — let others waste their money!
+- **Rage Mode:** Bribe the leader before a tax round to drain their funds! Watch the ⚠️ icons to know who's being targeted.
 
 ---
 
@@ -88,10 +135,10 @@ Lootanant/
 │   │   │   ├── controller/
 │   │   │   │   └── GameController.java      # REST API endpoints
 │   │   │   ├── model/
-│   │   │   │   ├── GameRoom.java            # Room state (players, bids, deed)
-│   │   │   │   └── Player.java              # Player state (money, net worth)
+│   │   │   │   ├── GameRoom.java            # Room state (players, bids, deed, vault)
+│   │   │   │   └── Player.java              # Player state (money, net worth, bribe tax)
 │   │   │   └── service/
-│   │   │       └── GameService.java         # Core game logic & AI
+│   │   │       └── GameService.java         # Core game logic, AI, taxation & rage mechanics
 │   │   └── resources/
 │   │       ├── application.properties       # Server config
 │   │       └── static/
@@ -99,9 +146,8 @@ Lootanant/
 │   └── test/
 │       └── java/imperfect/lootanant/
 │           └── LootanantApplicationTests.java
-├── instructions.txt                 # Original game design blueprint
-├── part1.txt                        # Detailed gameplay specification
-└── bugs.txt                         # Bug/improvement tracker
+├── addons.txt                       # Rage mode feature specification
+└── README.md                        # This file
 ```
 
 ---
@@ -114,9 +160,9 @@ All endpoints are under `/api`. Request/response bodies are JSON.
 
 | Method | Endpoint | Body | Description |
 |--------|----------|------|-------------|
-| `POST` | `/api/create` | `{ "name": "Host" }` | Create a new room. Returns `roomCode`, `playerId`, `hostId`. |
-| `GET` | `/api/rooms` | — | Get list of available rooms (code and host name). |
-| `POST` | `/api/join` | `{ "roomCode": "AB3XY", "name": "Player" }` | Join an existing room. Returns `playerId`. |
+| `POST` | `/api/create` | `{ "name": "Host", "gameMode": "classic" }` | Create a new room. `gameMode` can be `"classic"` or `"rage"`. Returns `roomCode`, `playerId`, `hostId`, `gameMode`. |
+| `GET` | `/api/rooms` | — | Get list of available rooms (code, host name, game mode). |
+| `POST` | `/api/join` | `{ "roomCode": "AB3XY", "name": "Player" }` | Join an existing room. Returns `playerId`, `gameMode`. |
 | `POST` | `/api/spectate` | `{ "roomCode": "AB3XY" }` | Join as a spectator. Returns `playerId`. |
 | `POST` | `/api/reconnect` | `{ "roomCode": "AB3XY", "playerId": "..." }` | Reconnect to an existing session. |
 | `POST` | `/api/leave` | `{ "roomCode": "AB3XY", "playerId": "..." }` | Leave the game (progress reset, CPU takes over). |
@@ -133,6 +179,13 @@ All endpoints are under `/api`. Request/response bodies are JSON.
 | `POST` | `/api/pass` | `{ "roomCode": "AB3XY", "playerId": "..." }` | Pass on the current round. |
 | `GET` | `/api/state/{roomCode}/{playerId}` | — | Get current game state (opponent money hidden). |
 
+### Rage Mode Endpoints
+
+| Method | Endpoint | Body | Description |
+|--------|----------|------|-------------|
+| `POST` | `/api/bribe` | `{ "roomCode": "AB3XY", "playerId": "...", "targetId": "..." }` | Anonymously bribe a player (+10% tax). Costs 1¢. |
+| `POST` | `/api/loan` | `{ "roomCode": "AB3XY", "playerId": "...", "amount": 3 }` | Take a loan from the King's Vault. Requires < 3¢. |
+
 ### WebSocket Channels
 
 Connect via SockJS at `/ws`. Subscribe to STOMP destinations:
@@ -140,16 +193,17 @@ Connect via SockJS at `/ws`. Subscribe to STOMP destinations:
 | Destination | Description |
 |-------------|-------------|
 | `/topic/room/{code}/state/{playerId}` | Per-player game state updates (hides opponent money) |
-| `/topic/room/{code}/gameStarted` | Broadcast when host starts the game |
+| `/topic/room/{code}/gameStarted` | Broadcast when host starts the game (includes `gameMode`) |
 | `/topic/room/{code}/roundResult` | Round outcome (winner, deed value, bid paid) |
 | `/topic/room/{code}/winner` | Game winner announcement |
+| `/topic/room/{code}/rageEvent` | Rage mode events: bribe notifications, loan notifications, taxation results |
 
 ---
 
 ## 🤖 CPU AI
 
 CPU players use a **Greedy** strategy:
-- Bid on high-value deeds (≥5) when they can afford at least 30% more than the current bid
+- Bid on high-value deeds (≥12k) when they can afford at least 30% more than the current bid
 - 33% chance to bid 1 on any card when no bids have been placed
 - Otherwise, pass
 
@@ -157,6 +211,7 @@ CPU players use a **Greedy** strategy:
 
 ## 🎨 UI Features
 
+- **Game Mode Selection** — Choose Classic or Rage mode when creating a room
 - **Gold Bar Theme** — Players bid on 1k–24k purity gold bars using **¢**
 - **3D Shiny Gold Bar** — Animated golden card in the center of the table
 - **Spectator Mode** — Join via code or select from a list of available rooms
@@ -170,8 +225,17 @@ CPU players use a **Greedy** strategy:
 - **Hidden Information** — Opponents' Cents are hidden; only Net Worth (total gold) is visible. Spectators cannot see gold bar purity.
 - **15-second Turn Timer** — Visual countdown bar; auto-pass on timeout
 - **Winner Overlay** — Trophy animation with "The Lootanant" title
-- **Player Manual** — In-app "How to Loot a King" guide
+- **Player Manual** — In-app "How to Loot a King" guide with tabs for Classic and Rage modes
 - **Responsive Design** — Optimized for both desktop and mobile browsers
+
+### Rage Mode UI
+
+- **King's Vault** — Golden chest icon displayed prominently, glows when money is added, shakes when a loan is taken
+- **Tax Countdown** — Shows rounds remaining until next taxation
+- **Tax Animation** — "King's Auditor" ant walks across screen collecting cents
+- **Bribe Modal** — Select a target player to anonymously increase their tax
+- **Loan Modal** — Borrow from the vault with a net worth penalty
+- **Bribe Indicator** — ⚠️ icon next to bribed players in leaderboard and player cards
 
 ---
 

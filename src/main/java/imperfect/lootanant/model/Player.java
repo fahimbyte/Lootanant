@@ -9,6 +9,10 @@ public class Player {
     private boolean passedThisRound = false;
     private boolean connected = true;
 
+    // Rage mode fields
+    private int bribeTaxPercent = 0; // extra tax % from bribes (capped at 40)
+    private boolean hasActiveLoan = false;
+
     public Player(String id, String displayName, boolean cpu) {
         this.id = id;
         this.displayName = displayName;
@@ -29,4 +33,8 @@ public class Player {
     public void setPassedThisRound(boolean passedThisRound) { this.passedThisRound = passedThisRound; }
     public boolean isConnected() { return connected; }
     public void setConnected(boolean connected) { this.connected = connected; }
+    public int getBribeTaxPercent() { return bribeTaxPercent; }
+    public void setBribeTaxPercent(int bribeTaxPercent) { this.bribeTaxPercent = Math.min(bribeTaxPercent, 40); }
+    public boolean isHasActiveLoan() { return hasActiveLoan; }
+    public void setHasActiveLoan(boolean hasActiveLoan) { this.hasActiveLoan = hasActiveLoan; }
 }

@@ -1,7 +1,9 @@
 package imperfect.lootanant.model;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ScheduledFuture;
 
 public class GameRoom {
@@ -21,6 +23,14 @@ public class GameRoom {
     private int startingCents = 12;
     private List<String> spectatorIds = new ArrayList<>();
 
+    // Rage mode fields
+    private String gameMode = "classic"; // "classic" or "rage"
+    private int roundNumber = 0;
+    private int kingsVault = 0;
+    private boolean taxationPhaseActive = false;
+    private boolean waitingForTaxConfirmation = false;
+    private Set<String> taxConfirmedPlayerIds = new HashSet<>();
+
     public GameRoom(String roomCode, String hostId) {
         this.roomCode = roomCode;
         this.hostId = hostId;
@@ -32,6 +42,10 @@ public class GameRoom {
 
     public int activeBiddersCount() {
         return (int) players.stream().filter(p -> !p.isPassedThisRound()).count();
+    }
+
+    public boolean isRageMode() {
+        return "rage".equalsIgnoreCase(gameMode);
     }
 
     public String getRoomCode() { return roomCode; }
@@ -64,4 +78,16 @@ public class GameRoom {
     public void setStartingCents(int startingCents) { this.startingCents = startingCents; }
     public List<String> getSpectatorIds() { return spectatorIds; }
     public void setSpectatorIds(List<String> spectatorIds) { this.spectatorIds = spectatorIds; }
+    public String getGameMode() { return gameMode; }
+    public void setGameMode(String gameMode) { this.gameMode = gameMode; }
+    public int getRoundNumber() { return roundNumber; }
+    public void setRoundNumber(int roundNumber) { this.roundNumber = roundNumber; }
+    public int getKingsVault() { return kingsVault; }
+    public void setKingsVault(int kingsVault) { this.kingsVault = kingsVault; }
+    public boolean isTaxationPhaseActive() { return taxationPhaseActive; }
+    public void setTaxationPhaseActive(boolean taxationPhaseActive) { this.taxationPhaseActive = taxationPhaseActive; }
+    public boolean isWaitingForTaxConfirmation() { return waitingForTaxConfirmation; }
+    public void setWaitingForTaxConfirmation(boolean waitingForTaxConfirmation) { this.waitingForTaxConfirmation = waitingForTaxConfirmation; }
+    public Set<String> getTaxConfirmedPlayerIds() { return taxConfirmedPlayerIds; }
+    public void setTaxConfirmedPlayerIds(Set<String> taxConfirmedPlayerIds) { this.taxConfirmedPlayerIds = taxConfirmedPlayerIds; }
 }

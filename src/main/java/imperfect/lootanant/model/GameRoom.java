@@ -10,7 +10,7 @@ public class GameRoom {
     private List<Player> players = new ArrayList<>();
     private boolean started = false;
     private boolean finished = false;
-    private int currentDeedValue = 0;
+    private int currentGoldBarPurity = 0;
     private int currentHighBid = 0;
     private String currentHighBidderId = null;
     private int currentPlayerIndex = 0;
@@ -18,7 +18,8 @@ public class GameRoom {
     private transient ScheduledFuture<?> turnTimer;
     private String winnerId = null;
     private int winNetWorth = 50;
-    private int startingAntCents = 12;
+    private int startingCents = 12;
+    private List<String> spectatorIds = new ArrayList<>();
 
     public GameRoom(String roomCode, String hostId) {
         this.roomCode = roomCode;
@@ -43,8 +44,8 @@ public class GameRoom {
     public void setStarted(boolean started) { this.started = started; }
     public boolean isFinished() { return finished; }
     public void setFinished(boolean finished) { this.finished = finished; }
-    public int getCurrentDeedValue() { return currentDeedValue; }
-    public void setCurrentDeedValue(int currentDeedValue) { this.currentDeedValue = currentDeedValue; }
+    public int getCurrentGoldBarPurity() { return currentGoldBarPurity; }
+    public void setCurrentGoldBarPurity(int currentGoldBarPurity) { this.currentGoldBarPurity = currentGoldBarPurity; }
     public int getCurrentHighBid() { return currentHighBid; }
     public void setCurrentHighBid(int currentHighBid) { this.currentHighBid = currentHighBid; }
     public String getCurrentHighBidderId() { return currentHighBidderId; }
@@ -59,6 +60,8 @@ public class GameRoom {
     public void setWinnerId(String winnerId) { this.winnerId = winnerId; }
     public int getWinNetWorth() { return winNetWorth; }
     public void setWinNetWorth(int winNetWorth) { this.winNetWorth = winNetWorth; }
-    public int getStartingAntCents() { return startingAntCents; }
-    public void setStartingAntCents(int startingAntCents) { this.startingAntCents = startingAntCents; }
+    public int getStartingCents() { return startingCents; }
+    public void setStartingCents(int startingCents) { this.startingCents = startingCents; }
+    public List<String> getSpectatorIds() { return spectatorIds; }
+    public void setSpectatorIds(List<String> spectatorIds) { this.spectatorIds = spectatorIds; }
 }

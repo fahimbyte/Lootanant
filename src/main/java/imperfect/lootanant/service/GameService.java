@@ -34,14 +34,60 @@ public class GameService {
         return rooms.get(code);
     }
 
+    public List<Map<String, String>> getAvailableRooms() {
+        List<Map<String, String>> available = new ArrayList<>();
+        rooms.forEach((code, room) -> {
+            if (!room.isFinished()) {
+                available.add(Map.of("roomCode", code, "hostName", room.getPlayers().get(0).getDisplayName()));
+            }
+        });
+        return available;
+    }
+
     public Player joinRoom(String code, String displayName) {
         GameRoom room = rooms.get(code);
-        if (room == null || room.isStarted() || room.getPlayers().size() >= 8) return null;
+        if (room == null || room.getPlayers().size() >= 8) return null;
+        if (room.isStarted()) return null;
         String playerId = UUID.randomUUID().toString();
         Player player = new Player(playerId, displayName, false);
         room.getPlayers().add(player);
         broadcastState(room);
         return player;
+    }
+
+    public String joinAsSpectator(String code) {
+        GameRoom room = rooms.get(code);
+        if (room == null) return null;
+        String spectatorId = "spec-" + UUID.randomUUID();
+        room.getSpectatorIds().add(spectatorId);
+        broadcastState(room);
+        return spectatorId;
+    }
+
+    public Player reconnect(String code, String playerId) {
+        GameRoom room = rooms.get(code);
+        if (room == null) return null;
+        Player p = room.getPlayerById(playerId);
+        if (p != null) {
+            p.setConnected(true);
+            p.setCpu(false); // Take back control from CPU if it was playing
+            broadcastState(room);
+            return p;
+        }
+        return null;
+    }
+
+    public void leaveRoom(String code, String playerId) {
+        GameRoom room = rooms.get(code);
+        if (room == null) return;
+        Player p = room.getPlayerById(playerId);
+        if (p != null) {
+            p.setCents(0);
+            p.setNetWorth(0);
+            p.setConnected(false);
+            p.setCpu(true); // Let CPU take over
+            broadcastState(room);
+        }
     }
 
     public boolean renamePlayer(String code, String playerId, String newName) {
@@ -65,13 +111,13 @@ public class GameService {
         return cpu;
     }
 
-    public boolean updateSettings(String code, String hostId, int winNetWorth, int startingAntCents) {
+    public boolean updateSettings(String code, String hostId, int winNetWorth, int startingCents) {
         GameRoom room = rooms.get(code);
         if (room == null || room.isStarted() || !room.getHostId().equals(hostId)) return false;
         if (winNetWorth < 10 || winNetWorth > 200) return false;
-        if (startingAntCents < 1 || startingAntCents > 100) return false;
+        if (startingCents < 1 || startingCents > 100) return false;
         room.setWinNetWorth(winNetWorth);
-        room.setStartingAntCents(startingAntCents);
+        room.setStartingCents(startingCents);
         broadcastState(room);
         return true;
     }
@@ -79,9 +125,9 @@ public class GameService {
     public boolean startGame(String code, String hostId) {
         GameRoom room = rooms.get(code);
         if (room == null || !room.getHostId().equals(hostId) || room.getPlayers().size() < 2) return false;
-        // Apply starting ant-cents to all players
+        // Apply starting cents to all players
         for (Player p : room.getPlayers()) {
-            p.setAntCents(room.getStartingAntCents());
+            p.setCents(room.getStartingCents());
         }
         room.setStarted(true);
         room.setStartingPlayerIndex(0);
@@ -98,7 +144,7 @@ public class GameService {
 
         Player current = room.getPlayers().get(room.getCurrentPlayerIndex());
         if (!current.getId().equals(playerId)) return false;
-        if (bidAmount <= room.getCurrentHighBid() || bidAmount > current.getAntCents()) return false;
+        if (bidAmount <= room.getCurrentHighBid() || bidAmount > current.getCents()) return false;
 
         cancelTimer(room);
 
@@ -106,7 +152,7 @@ public class GameService {
         refundHighBidder(room);
 
         // Deduct from current bidder
-        current.setAntCents(current.getAntCents() - bidAmount);
+        current.setCents(current.getCents() - bidAmount);
         room.setCurrentHighBid(bidAmount);
         room.setCurrentHighBidderId(playerId);
 
@@ -139,7 +185,7 @@ public class GameService {
         if (room.getCurrentHighBidderId() != null) {
             Player prev = room.getPlayerById(room.getCurrentHighBidderId());
             if (prev != null) {
-                prev.setAntCents(prev.getAntCents() + room.getCurrentHighBid());
+                prev.setCents(prev.getCents() + room.getCurrentHighBid());
             }
         }
     }
@@ -151,31 +197,32 @@ public class GameService {
 
         if (winnerId != null) {
             Player winner = room.getPlayerById(winnerId);
-            // Winner already paid (money deducted during bid); add deed value to net worth
-            winner.setNetWorth(winner.getNetWorth() + room.getCurrentDeedValue());
+            // Winner already paid (money deducted during bid); add purity to net worth
+            winner.setNetWorth(winner.getNetWorth() + room.getCurrentGoldBarPurity());
             roundResult.put("roundWinner", winner.getDisplayName());
-            roundResult.put("deedValue", room.getCurrentDeedValue());
+            roundResult.put("purity", room.getCurrentGoldBarPurity());
             roundResult.put("bidPaid", room.getCurrentHighBid());
 
             // Check win condition
             if (winner.getNetWorth() >= room.getWinNetWorth()) {
                 room.setFinished(true);
                 room.setWinnerId(winnerId);
+                cancelTimer(room); // Ensure timer is cancelled
                 broadcastState(room);
                 messagingTemplate.convertAndSend("/topic/room/" + room.getRoomCode() + "/winner",
                         (Object) Map.of("winnerId", winnerId, "winnerName", winner.getDisplayName()));
                 return;
             }
         } else {
-            // No one bid - card discarded
+            // No one bid - gold bar discarded
             roundResult.put("roundWinner", "none");
-            roundResult.put("deedValue", room.getCurrentDeedValue());
+            roundResult.put("purity", room.getCurrentGoldBarPurity());
             roundResult.put("discarded", true);
         }
 
-        // Income phase: +1 ant-cent for every player
+        // Income phase: +1 cent for every player
         for (Player p : room.getPlayers()) {
-            p.setAntCents(p.getAntCents() + 1);
+            p.setCents(p.getCents() + 1);
         }
 
         messagingTemplate.convertAndSend("/topic/room/" + room.getRoomCode() + "/roundResult", (Object) roundResult);
@@ -191,8 +238,8 @@ public class GameService {
         if (room.isFinished()) return;
 
         // Reset round state
-        int deedValue = random.nextInt(11) + 1;
-        room.setCurrentDeedValue(deedValue);
+        int purity = random.nextInt(24) + 1;
+        room.setCurrentGoldBarPurity(purity);
         room.setCurrentHighBid(0);
         room.setCurrentHighBidderId(null);
         room.setCurrentPlayerIndex(room.getStartingPlayerIndex());
@@ -227,7 +274,8 @@ public class GameService {
         Player current = room.getPlayers().get(room.getCurrentPlayerIndex());
         if (!current.isCpu()) return;
 
-        // CPU AI: Greedy - bid if card value is high (>=5) and has 30% more than current bid
+        // CPU AI: Greedy - bid if card value is high (>=12k) and has 30% more than current bid
+        // Increased delay for more human-like play
         scheduler.schedule(() -> {
             synchronized (this) {
                 if (room.isFinished()) return;
@@ -235,12 +283,12 @@ public class GameService {
                 if (!cpu.getId().equals(current.getId())) return;
 
                 int minBid = room.getCurrentHighBid() + 1;
-                boolean shouldBid = room.getCurrentDeedValue() >= 5
-                        && cpu.getAntCents() >= minBid
-                        && cpu.getAntCents() >= (int) (room.getCurrentHighBid() * 1.3) + 1;
+                boolean shouldBid = room.getCurrentGoldBarPurity() >= 12
+                        && cpu.getCents() >= minBid
+                        && cpu.getCents() >= (int) (room.getCurrentHighBid() * 1.3) + 1;
 
                 // Also bid on lower cards if very cheap
-                if (!shouldBid && room.getCurrentHighBid() == 0 && cpu.getAntCents() >= 1) {
+                if (!shouldBid && room.getCurrentHighBid() == 0 && cpu.getCents() >= 1) {
                     shouldBid = random.nextInt(3) == 0; // 33% chance to bid 1 on any card
                 }
 
@@ -251,7 +299,7 @@ public class GameService {
                     pass(room.getRoomCode(), cpu.getId());
                 }
             }
-        }, 1, TimeUnit.SECONDS);
+        }, 2 + random.nextInt(3), TimeUnit.SECONDS);
     }
 
     private void startTurnTimer(GameRoom room) {
@@ -279,7 +327,7 @@ public class GameService {
         state.put("roomCode", room.getRoomCode());
         state.put("started", room.isStarted());
         state.put("finished", room.isFinished());
-        state.put("currentDeedValue", room.getCurrentDeedValue());
+        state.put("currentGoldBarPurity", room.getCurrentGoldBarPurity());
         state.put("currentHighBid", room.getCurrentHighBid());
         state.put("currentHighBidderId", room.getCurrentHighBidderId());
         state.put("winnerId", room.getWinnerId());
@@ -296,12 +344,13 @@ public class GameService {
             pm.put("netWorth", p.getNetWorth());
             pm.put("cpu", p.isCpu());
             pm.put("passed", p.isPassedThisRound());
-            // Only show own ant-cents
+            pm.put("connected", p.isConnected());
+            // Only show own cents
             if (p.getId().equals(playerId)) {
-                pm.put("antCents", p.getAntCents());
+                pm.put("cents", p.getCents());
                 pm.put("isYou", true);
             } else {
-                pm.put("antCents", "???");
+                pm.put("cents", "???");
                 pm.put("isYou", false);
             }
             playerList.add(pm);
@@ -309,16 +358,23 @@ public class GameService {
         state.put("players", playerList);
         state.put("hostId", room.getHostId());
         state.put("winNetWorth", room.getWinNetWorth());
-        state.put("startingAntCents", room.getStartingAntCents());
+        state.put("startingCents", room.getStartingCents());
+        state.put("isSpectator", room.getSpectatorIds().contains(playerId));
         return state;
     }
 
     private void broadcastState(GameRoom room) {
+        // Broadcast to players
         for (Player p : room.getPlayers()) {
             if (!p.isCpu()) {
                 messagingTemplate.convertAndSend("/topic/room/" + room.getRoomCode() + "/state/" + p.getId(),
                         (Object) getPublicState(room, p.getId()));
             }
+        }
+        // Broadcast to spectators
+        for (String specId : room.getSpectatorIds()) {
+            messagingTemplate.convertAndSend("/topic/room/" + room.getRoomCode() + "/state/" + specId,
+                    (Object) getPublicState(room, specId));
         }
     }
 

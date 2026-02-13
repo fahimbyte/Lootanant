@@ -3,8 +3,39 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>🐜 Lootanant — Loot the King Ant!</title>
+<title>🧈 Lootanant — Gold Bar Auction!</title>
 <style>
+/* ── Spectate List ── */
+#spectateList {
+  background: #16213e;
+  border-radius: 16px;
+  padding: 20px;
+  width: 100%;
+  max-width: 420px;
+  margin-top: 20px;
+}
+.room-item {
+  background: #0f3460;
+  padding: 12px;
+  border-radius: 10px;
+  margin-bottom: 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: transform 0.2s;
+}
+.room-item:hover {
+  transform: scale(1.02);
+  cursor: pointer;
+}
+.room-item .room-info {
+  display: flex;
+  flex-direction: column;
+}
+.room-item .room-info b {
+  color: #e94560;
+}
+
 /* ── Reset & Base ── */
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:'Segoe UI',system-ui,sans-serif;background:#1a1a2e;color:#e0e0e0;min-height:100vh;display:flex;flex-direction:column;align-items:center;overflow-x:hidden}
@@ -54,9 +85,10 @@ input:focus{border-color:#e94560}
 
 /* Deed Card */
 .deed-area{display:flex;flex-direction:column;align-items:center;margin:10px 0 14px}
-.deed-card{width:130px;height:185px;background:linear-gradient(135deg,#e94560,#c23152);border-radius:16px;display:flex;flex-direction:column;align-items:center;justify-content:center;box-shadow:0 6px 25px rgba(233,69,96,.5);position:relative;transition:transform .3s}
-.deed-card .value{font-size:3rem;font-weight:800;color:#fff}
-.deed-card .label{font-size:.7rem;color:rgba(255,255,255,.7);margin-top:4px}
+.deed-card{width:130px;height:185px;background:linear-gradient(135deg,#ffd700,#b8860b);border:3px solid #daa520;border-radius:16px;display:flex;flex-direction:column;align-items:center;justify-content:center;box-shadow:0 6px 25px rgba(218,165,32,.6), inset 0 0 20px rgba(255,255,255,0.4);position:relative;transition:transform .3s;overflow:hidden}
+.deed-card::after{content:'';position:absolute;top:-50%;left:-50%;width:200%;height:200%;background:linear-gradient(45deg, transparent 45%, rgba(255,255,255,0.3) 50%, transparent 55%);transform:rotate(-45deg);animation:shine 3s infinite;pointer-events:none}
+@keyframes shine{0%{transform:translateX(-100%) rotate(-45deg)}100%{transform:translateX(100%) rotate(-45deg)}}
+.deed-card .value{font-size:3rem;font-weight:800;color:#333;text-shadow:1px 1px 2px rgba(255,255,255,0.5)}
 .deed-subtitle{margin-top:6px;font-size:.8rem;color:#888}
 
 /* Animations */
@@ -90,7 +122,6 @@ input:focus{border-color:#e94560}
 .roundtable-center{width:160px;height:160px;border-radius:50%;background:radial-gradient(circle,#1e2a4a,#16213e);border:3px solid #0f3460;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:2;box-shadow:0 0 30px rgba(15,52,96,.5)}
 .roundtable-center .deed-card{width:80px;height:110px;border-radius:10px}
 .roundtable-center .deed-card .value{font-size:1.8rem}
-.roundtable-center .deed-card .label{font-size:.55rem}
 
 /* Player seats around table */
 .player-seat{position:absolute;text-align:center;transition:all .3s}
@@ -167,7 +198,6 @@ input:focus{border-color:#e94560}
   .roundtable-center{width:90px;height:90px}
   .roundtable-center .deed-card{width:50px;height:70px}
   .roundtable-center .deed-card .value{font-size:1.2rem}
-  .roundtable-center .deed-card .label{font-size:.45rem}
   .player-card{min-width:72px;padding:5px 6px}
   .player-card .pname{max-width:60px;font-size:.65rem}
   .player-card .avatar{font-size:1rem;margin-bottom:0}
@@ -186,8 +216,8 @@ input:focus{border-color:#e94560}
 
 <!-- ════ LOBBY ════ -->
 <div id="lobby" class="screen active">
-  <h1>🐜 Lootanant</h1>
-  <p class="subtitle">Loot the King Ant — become his Lieutenant!</p>
+  <h1>🧈 Lootanant</h1>
+  <p class="subtitle">Loot the King — become his Lieutenant!</p>
   <div class="lobby-box">
     <label>Your Display Name</label>
     <input id="nameInput" placeholder="Enter your name…" maxlength="16" value="">
@@ -196,10 +226,18 @@ input:focus{border-color:#e94560}
     <label>Room Code</label>
     <input id="joinCodeInput" placeholder="e.g. AB3XY" maxlength="5" style="text-transform:uppercase">
     <button class="btn-secondary" onclick="joinRoom()">Join Room</button>
+    <button class="btn-secondary" onclick="showSpectateList()">Spectate Room</button>
     <div style="margin-top:8px;text-align:center">
       <span class="back-link" onclick="showManual()">📖 How to Play</span>
     </div>
   </div>
+</div>
+
+<!-- ════ SPECTATE LIST ════ -->
+<div id="spectateListScreen" class="screen">
+  <h2>📺 Available Rooms</h2>
+  <div id="spectateList"></div>
+  <div class="back-link" onclick="showLobby()" style="margin-top:20px">← Back to Lobby</div>
 </div>
 
 <!-- ════ WAITING ROOM ════ -->
@@ -220,10 +258,10 @@ input:focus{border-color:#e94560}
     </div>
     <div class="setting-hint">Points needed to win (10–200)</div>
     <div class="setting-row">
-      <label>🪙 Starting Ant-cents</label>
+      <label>¢ Starting Money</label>
       <input type="number" id="settingAntCents" value="12" min="1" max="100" step="1">
     </div>
-    <div class="setting-hint">Each player starts with this many ant-cents (1–100)</div>
+    <div class="setting-hint">Each player starts with this many ¢ (1–100)</div>
   </div>
   <p id="waitMsg" style="color:#888;margin-top:14px;font-size:.9rem"></p>
 </div>
@@ -233,6 +271,7 @@ input:focus{border-color:#e94560}
   <div class="board-top">
     <span class="room-badge" id="boardRoomCode"></span>
     <span id="turnIndicator" style="color:#e94560;font-weight:600"></span>
+    <button class="btn-secondary btn-small" id="leaveBtn" onclick="leaveGame()">🚪 Leave</button>
   </div>
 
   <!-- Ranking Area -->
@@ -243,14 +282,13 @@ input:focus{border-color:#e94560}
     <div class="roundtable-center">
       <div class="deed-card" id="deedCard">
         <div class="value" id="deedValue">?</div>
-        <div class="label">Cosmic Deed</div>
       </div>
     </div>
   </div>
 
   <!-- High Bid -->
   <div class="high-bid-bar">
-    <span>Highest Bid: <span class="amount" id="highBidAmount">0</span> 🪙</span>
+    <span>Highest Bid: <span class="amount" id="highBidAmount">0</span> ¢</span>
     <span id="highBidder" style="color:#aaa">—</span>
   </div>
 
@@ -268,7 +306,7 @@ input:focus{border-color:#e94560}
   <div class="trophy">🏆</div>
   <h2 id="winnerTitle">???</h2>
   <p>has been crowned <b style="color:#e94560">The Lootanant!</b></p>
-  <button class="btn-primary" onclick="location.reload()">Play Again</button>
+  <button class="btn-primary" onclick="clearSession();location.reload()">Back to Lobby</button>
 </div>
 
 <!-- ════ ROUND BANNER ════ -->
@@ -284,21 +322,21 @@ input:focus{border-color:#e94560}
 <div id="manual" class="screen">
   <div class="manual-box">
     <h2>📖 How to Loot a King</h2>
-    <h3>🐜 The Lore</h3>
-    <p>The King Ant is hoarding the cosmos's most valuable deeds. As a budding thief, your goal is to <b>"Loot an Ant"</b> and prove you have the strategic mind to become his Lieutenant — the <b>Lootanant</b>.</p>
+    <h3>👑 The Lore</h3>
+    <p>The King is hoarding the world's purest Gold Bars. As a budding thief, your goal is to prove you have the strategic mind to become his Lieutenant — the <b>Lootanant</b>.</p>
     <h3>📜 The Rules</h3>
     <ul>
-      <li><span class="icon">💰</span><b>Starting Out:</b> You begin with <b>12 Ant-cents</b> and <b>0 Net Worth</b>.</li>
-      <li><span class="icon">🃏</span><b>The Deed:</b> Every round, a card appears with a value (1–11). This is how many points you get for winning it.</li>
+      <li><span class="icon">💰</span><b>Starting Out:</b> You begin with <b>12 ¢</b> and <b>0 Net Worth</b>.</li>
+      <li><span class="icon">🧈</span><b>The Gold Bar:</b> Every round, a bar appears with a purity (1k–24k). This is how many points you get for winning it.</li>
       <li><span class="icon">🔨</span><b>The Bidding:</b>
         <ul>
           <li>You must bid <b>higher</b> than the last person.</li>
-          <li>You can see how many points (Net Worth) others have, but you <b>cannot</b> see their money.</li>
-          <li>Are they bidding 5 cents because they're rich, or because it's their last 5 cents? <b>Bluffing is key.</b></li>
+          <li>You can see how many points (Gold Bars) others have, but you <b>cannot</b> see their money.</li>
+          <li>Are they bidding 5 ¢ because they're rich, or because it's their last 5 ¢? <b>Bluffing is key.</b></li>
         </ul>
       </li>
-      <li><span class="icon">✅</span><b>Winning the Round:</b> If everyone else "Passes," you pay the money and take the points.</li>
-      <li><span class="icon">🪙</span><b>The Payday:</b> Every time a card is sold (or discarded), the King Ant drops <b>1 Ant-cent</b> for every player.</li>
+      <li><span class="icon">✅</span><b>Winning the Round:</b> If everyone else "Passes," you pay the money and take the bar.</li>
+      <li><span class="icon">¢</span><b>The Payday:</b> Every time a bar is sold (or discarded), the King drops <b>1 ¢</b> for every player.</li>
       <li><span class="icon">🏆</span><b>Victory:</b> The moment you hit the target <b>Net Worth</b> (default 50), you win and become the <b>Lootanant!</b></li>
     </ul>
     <h3>💡 Tips</h3>
@@ -321,6 +359,39 @@ input:focus{border-color:#e94560}
 // ── State ──
 let roomCode='', playerId='', hostId='', stompClient=null, timerInterval=null;
 let prevState=null, roundNum=0, prevTurnPlayerId=null, renameTimeout=null;
+let isSpectator = false;
+
+// ── Persistence ──
+function saveSession(){
+  if(roomCode && playerId) {
+    localStorage.setItem('lootanant_session', JSON.stringify({roomCode, playerId, hostId, isSpectator}));
+  }
+}
+function loadSession(){
+  const s = localStorage.getItem('lootanant_session');
+  return s ? JSON.parse(s) : null;
+}
+function clearSession(){
+  localStorage.removeItem('lootanant_session');
+}
+
+window.onload = async () => {
+  const s = loadSession();
+  if(s) {
+    // Try to reconnect
+    const res = await fetch('/api/reconnect', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({roomCode: s.roomCode, playerId: s.playerId})
+    });
+    if(res.ok) {
+      roomCode = s.roomCode; playerId = s.playerId; hostId = s.hostId; isSpectator = s.isSpectator;
+      connectWS();
+    } else {
+      clearSession();
+    }
+  }
+};
 
 // ── Screen helpers ──
 function show(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active')}
@@ -353,7 +424,8 @@ async function api(path,body){const r=await fetch('/api'+path,{method:'POST',hea
 async function createRoom(){
   const name=document.getElementById('nameInput').value.trim()||'Host';
   const data=await api('/create',{name});
-  roomCode=data.roomCode;playerId=data.playerId;hostId=data.hostId;
+  roomCode=data.roomCode;playerId=data.playerId;hostId=data.hostId;isSpectator=false;
+  saveSession();
   document.getElementById('roomCodeDisplay').textContent=roomCode;
   document.getElementById('hostControls').style.display='flex';
   document.getElementById('gameSettings').style.display='flex';
@@ -369,7 +441,8 @@ async function joinRoom(){
   if(!code){toast('Enter a room code!');return}
   const data=await api('/join',{roomCode:code,name});
   if(data.error){toast(data.error);return}
-  roomCode=code;playerId=data.playerId;hostId='';
+  roomCode=code;playerId=data.playerId;hostId='';isSpectator=false;
+  saveSession();
   document.getElementById('roomCodeDisplay').textContent=roomCode;
   document.getElementById('hostControls').style.display='none';
   document.getElementById('gameSettings').style.display='none';
@@ -385,10 +458,57 @@ async function addCpu(){await api('/addCpu',{roomCode,hostId})}
 async function startGame(){
   // Save settings before starting
   const winNW=parseInt(document.getElementById('settingWinNW').value)||50;
-  const antC=parseInt(document.getElementById('settingAntCents').value)||12;
-  const s=await api('/settings',{roomCode,hostId,winNetWorth:winNW,startingAntCents:antC});
+  const cents=parseInt(document.getElementById('settingAntCents').value)||12;
+  const s=await api('/settings',{roomCode,hostId,winNetWorth:winNW,startingCents:cents});
   if(s.error){toast(s.error);return}
   const d=await api('/start',{roomCode,hostId});if(d.error)toast(d.error)
+}
+
+async function spectateRoom(code){
+  const codeToJoin = code || document.getElementById('joinCodeInput').value.trim().toUpperCase();
+  if(!codeToJoin){toast('Enter a room code!');return}
+  const data=await api('/spectate',{roomCode:codeToJoin});
+  if(data.error){toast(data.error);return}
+  roomCode=codeToJoin;playerId=data.playerId;hostId='';isSpectator=true;
+  saveSession();
+  document.getElementById('roomCodeDisplay').textContent=roomCode;
+  document.getElementById('hostControls').style.display='none';
+  document.getElementById('gameSettings').style.display='none';
+  document.getElementById('waitMsg').textContent='Spectating...';
+  show('waitingRoom');
+  connectWS();
+}
+
+async function showSpectateList(){
+  const res = await fetch('/api/rooms');
+  const rooms = await res.json();
+  const list = document.getElementById('spectateList');
+  list.innerHTML = '';
+  if(rooms.length === 0){
+    list.innerHTML = '<p style="text-align:center;color:#888">No active rooms found.</p>';
+  } else {
+    rooms.forEach(r => {
+      const item = document.createElement('div');
+      item.className = 'room-item';
+      item.innerHTML = `
+        <div class="room-info">
+          <b>Room: ${r.roomCode}</b>
+          <span>Host: ${r.hostName}</span>
+        </div>
+        <button class="btn-primary btn-small">📺 Watch</button>
+      `;
+      item.onclick = () => spectateRoom(r.roomCode);
+      list.appendChild(item);
+    });
+  }
+  show('spectateListScreen');
+}
+
+async function leaveGame(){
+  if(!confirm('Are you sure you want to leave? Your progress will be lost.')) return;
+  await api('/leave', {roomCode, playerId});
+  clearSession();
+  location.reload();
 }
 
 // ── Rename ──
@@ -422,9 +542,9 @@ function connectWS(){
     stompClient.subscribe('/topic/room/'+roomCode+'/roundResult', msg=>{
       const r=JSON.parse(msg.body);
       if(r.discarded){
-        showRoundBanner('Card Discarded!','No bids this round. +1 🪙 for everyone.');
+        showRoundBanner('Bar Discarded!','No bids this round. +1 ¢ for everyone.');
       } else {
-        showRoundBanner('🔨 '+r.roundWinner+' Wins!','Paid '+r.bidPaid+' 🪙 for a '+r.deedValue+'-point deed. +1 🪙 for all.');
+        showRoundBanner('🔨 '+r.roundWinner+' Wins!','Paid '+r.bidPaid+' ¢ for a '+r.purity+'k purity gold bar. +1 ¢ for all.');
       }
     });
     // Winner
@@ -514,16 +634,18 @@ function renderGame(state){
   document.getElementById('highBidAmount').textContent=state.currentHighBid;
 
   // Deed card
-  const deedEl=document.getElementById('deedValue');
-  const deedCard=document.getElementById('deedCard');
-  if(!prevState||prevState.currentDeedValue!==state.currentDeedValue){
-    deedEl.textContent=state.currentDeedValue;
-    deedCard.classList.remove('flip-in');
-    void deedCard.offsetWidth;
-    deedCard.classList.add('flip-in');
-    if(prevState&&prevState.currentDeedValue!==state.currentDeedValue){
+  const purityEl=document.getElementById('deedValue');
+  const goldBarCard=document.getElementById('deedCard');
+  if(!prevState||prevState.currentGoldBarPurity!==state.currentGoldBarPurity){
+    purityEl.textContent=state.currentGoldBarPurity+'k';
+    // Show winning point once at game start
+    if(!prevState) toast('🏆 Target Net Worth: '+state.winNetWorth+' — First to reach it wins!',5000);
+    goldBarCard.classList.remove('flip-in');
+    void goldBarCard.offsetWidth;
+    goldBarCard.classList.add('flip-in');
+    if(prevState&&prevState.currentGoldBarPurity!==state.currentGoldBarPurity){
       roundNum++;
-      showRoundBanner('🃏 New Deed!','A '+state.currentDeedValue+'-point cosmic deed has appeared!');
+      showRoundBanner('🧈 New Gold Bar!','A '+state.currentGoldBarPurity+'k purity gold bar has appeared!');
     }
   }
 
@@ -537,8 +659,8 @@ function renderGame(state){
   document.getElementById('turnIndicator').textContent=ct?(isMyTurn?'🎯 Your Turn!':'⏳ '+ct.displayName+"'s turn"):'';
 
   // Turn change animation
-  if(prevState&&state.currentTurnPlayerId&&state.currentTurnPlayerId!==prevTurnPlayerId){
-    if(isMyTurn){
+  if(prevState && state.currentTurnPlayerId && state.currentTurnPlayerId !== prevTurnPlayerId){
+    if(isMyTurn && !state.isSpectator){
       showTurnBanner('🎯 Your Turn!');
     } else if(ct){
       showTurnBanner('⏳ '+ct.displayName+"'s turn");
@@ -551,8 +673,8 @@ function renderGame(state){
   const sorted=[...state.players].sort((a,b)=>b.netWorth-a.netWorth);
   const top3=sorted.slice(0,3);
   const medals=['🥇','🥈','🥉'];
-  rankArea.innerHTML='<h4>🏅 Leaderboard</h4>'+top3.map((p,i)=>
-    `<div class="ranking-row"><span class="rank-medal">${medals[i]}</span><span class="rank-name">${p.displayName}${p.isYou?' (You)':''}</span><span class="rank-nw">${p.netWorth} pts</span></div>`
+  rankArea.innerHTML='<h4>🏆 Top Ranking</h4>'+top3.map((p,i)=>
+    `<div class="ranking-row"><span class="rank-medal">${medals[i]}</span><span class="rank-name">${p.displayName}${p.id===playerId?' (You)':''}</span><span class="rank-nw">${p.netWorth} 🧈</span></div>`
   ).join('');
 
   // Roundtable player seats
@@ -587,12 +709,13 @@ function renderGame(state){
     }
 
     card.innerHTML=`
-      <div class="avatar">${p.cpu?'🤖':'🐜'}</div>
-      ${p.isYou?'<span class="you-badge">YOU</span>':''}
+      <div class="avatar">${p.cpu?'🤖':(p.connected?'🐜':'😴')}</div>
+      ${p.id===playerId?'<span class="you-badge">YOU</span>':''}
       <div class="pname">${p.displayName}</div>
-      <div class="stat ${nwClass}">NW: <b>${p.netWorth}</b></div>
-      ${p.isYou?`<div class="stat">🪙 ${p.antCents}</div>`:''}
+      <div class="stat ${nwClass}">🧈 <b>${p.netWorth}</b></div>
+      ${p.id===playerId?`<div class="stat">¢ ${p.cents}</div>`:''}
       ${p.passed?'<div class="stat" style="color:#e94560">Passed</div>':''}
+      ${!p.connected?'<div class="stat" style="color:#888">Disconnected</div>':''}
     `;
     if(bidWinClass)card.classList.add(bidWinClass);
 
@@ -602,33 +725,35 @@ function renderGame(state){
 
   // Bid console
   const console_=document.getElementById('bidConsole');
-  if(isMyTurn&&!state.finished){
+  if(isMyTurn && !state.finished && !state.isSpectator){
     console_.style.display='flex';
     console_.classList.remove('fade-scale');
     void console_.offsetWidth;
     console_.classList.add('fade-scale');
     const minBid=state.currentHighBid+1;
-    const me=state.players.find(p=>p.isYou);
-    const myMoney=me?me.antCents:0;
+    const me=state.players.find(p=>p.id===playerId);
+    const myMoney=me?me.cents:0;
     const btns=document.getElementById('bidButtons');
     btns.innerHTML='';
     if(myMoney>=minBid){
-      const bids=new Set();
-      bids.add(minBid);
-      for(let b=minBid;b<=myMoney;b+=Math.max(1,Math.floor((myMoney-minBid)/5))){bids.add(b)}
-      bids.add(myMoney);
-      [...bids].sort((a,b)=>a-b).forEach(b=>{
+      // Show all available bid amounts as buttons
+      for(let b=minBid;b<=myMoney;b++){
         const btn=document.createElement('button');
-        btn.textContent=b+' 🪙';
+        btn.textContent=b+' ¢';
         btn.onclick=()=>doBid(b);
         btns.appendChild(btn);
-      });
+      }
     }
-    document.getElementById('bidPrompt').textContent=myMoney>=minBid?`Bid at least ${minBid} 🪙 (you have ${myMoney})`:'You cannot outbid — pass this round.';
+    document.getElementById('bidPrompt').textContent=myMoney>=minBid?`Bid at least ${minBid} ¢ (you have ${myMoney} ¢)`:'You cannot outbid — pass this round.';
     startTimerBar();
   } else {
     console_.style.display='none';
     stopTimerBar();
+  }
+  if(state.isSpectator) {
+    document.getElementById('turnIndicator').textContent = (state.currentTurnPlayerId && !state.finished) ? 'Watching...' : (state.finished ? 'Game Over' : 'Waiting...');
+    const leaveBtn = document.getElementById('leaveBtn');
+    if (leaveBtn) leaveBtn.style.display = 'none';
   }
 
   prevState=JSON.parse(JSON.stringify(state));

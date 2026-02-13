@@ -1,32 +1,32 @@
-# 🐜 Lootanant — Loot the King Ant!
+# 🧈 Lootanant — Gold Bar Auction!
 
-A real-time, web-based multiplayer auction board game built with **Java/Spring Boot** and vanilla **HTML5/CSS/JS**. Players compete to accumulate **50 Net Worth** by bidding on cosmic property deeds — bluffing, strategizing, and outmaneuvering opponents to become **The Lootanant**.
+A real-time, web-based multiplayer auction board game built with **Java/Spring Boot** and vanilla **HTML5/CSS/JS**. Players compete to accumulate **50 Net Worth** by bidding on high-purity gold bars — bluffing, strategizing, and outmaneuvering opponents to become **The Lootanant**.
 
 ---
 
 ## 🎮 Game Overview
 
-The King Ant is hoarding the cosmos's most valuable deeds. As a budding thief, your goal is to **"Loot an Ant"** and prove you have the strategic mind to become his Lieutenant — the **Lootanant**.
+The King is hoarding the world's purest Gold Bars. As a budding thief, your goal is to prove you have the strategic mind to become his Lieutenant — the **Lootanant**.
 
 ### Rules at a Glance
 
 | Concept | Detail |
 |---------|--------|
-| **Players** | 2–8 (human or CPU) |
-| **Starting Money** | 12 Ant-cents per player (configurable) |
+| **Players** | 2–8 (human or CPU) + Spectators |
+| **Starting Money** | 12 ¢ per player (configurable) |
 | **Starting Net Worth** | 0 |
-| **Deed Cards** | Random value 1–11 each round |
+| **Gold Bars** | Random purity 1k–24k each round |
 | **Bidding** | Clockwise; each bid must be higher than the last |
-| **Winning a Round** | Last bidder standing pays their bid, gains the deed's value as Net Worth |
+| **Winning a Round** | Last bidder standing pays their bid, gains the bar's purity as Net Worth |
 | **Losing a Bid** | Money is refunded when outbid |
 | **Passing** | Locks you out of the current round |
-| **Income** | +1 Ant-cent for **all** players after each round (sold or discarded) |
+| **Income** | +1 ¢ for **all** players after each round (sold or discarded) |
 | **Victory** | First player to reach **50 Net Worth** wins! (configurable) |
 
 ### Strategic Depth
 
 - You can see opponents' **Net Worth** but **not** their money — bluffing is key.
-- Overbidding drains your funds; underbidding lets opponents grab high-value deeds cheaply.
+- Overbidding drains your funds; underbidding lets opponents grab high-value gold bars cheaply.
 - Sometimes passing is the smartest move — let others waste their money!
 
 ---
@@ -115,10 +115,14 @@ All endpoints are under `/api`. Request/response bodies are JSON.
 | Method | Endpoint | Body | Description |
 |--------|----------|------|-------------|
 | `POST` | `/api/create` | `{ "name": "Host" }` | Create a new room. Returns `roomCode`, `playerId`, `hostId`. |
+| `GET` | `/api/rooms` | — | Get list of available rooms (code and host name). |
 | `POST` | `/api/join` | `{ "roomCode": "AB3XY", "name": "Player" }` | Join an existing room. Returns `playerId`. |
+| `POST` | `/api/spectate` | `{ "roomCode": "AB3XY" }` | Join as a spectator. Returns `playerId`. |
+| `POST` | `/api/reconnect` | `{ "roomCode": "AB3XY", "playerId": "..." }` | Reconnect to an existing session. |
+| `POST` | `/api/leave` | `{ "roomCode": "AB3XY", "playerId": "..." }` | Leave the game (progress reset, CPU takes over). |
 | `POST` | `/api/addCpu` | `{ "roomCode": "AB3XY", "hostId": "..." }` | Add a CPU player (host only). |
 | `POST` | `/api/rename` | `{ "roomCode": "AB3XY", "playerId": "...", "name": "NewName" }` | Rename a player in the waiting room. |
-| `POST` | `/api/settings` | `{ "roomCode": "AB3XY", "hostId": "...", "winNetWorth": 50, "startingAntCents": 12 }` | Update game settings (host only, before start). |
+| `POST` | `/api/settings` | `{ "roomCode": "AB3XY", "hostId": "...", "winNetWorth": 50, "startingCents": 12 }` | Update game settings (host only, before start). |
 | `POST` | `/api/start` | `{ "roomCode": "AB3XY", "hostId": "..." }` | Start the game (host only, min 2 players). |
 
 ### Gameplay
@@ -153,12 +157,17 @@ CPU players use a **Greedy** strategy:
 
 ## 🎨 UI Features
 
-- **Lobby** — Create or join rooms with a 5-character code
+- **Gold Bar Theme** — Players bid on 1k–24k purity gold bars using **¢**
+- **3D Shiny Gold Bar** — Animated golden card in the center of the table
+- **Spectator Mode** — Join via code or select from a list of available rooms
+- **Session Persistence** — Refreshing the browser or reconnecting keeps you in the game
+- **CPU Takeover** — Disconnected players are replaced by CPU AI until they return
+- **Lobby** — Create or join rooms, or spectate
 - **Waiting Room** — See players, rename yourself, host can add CPUs, configure game settings, and start
-- **Roundtable Layout** — Players arranged in a circle around the central deed card
-- **Animations** — Deed card flip, bid-win glow, net worth pop, turn pulse, round/turn banners
-- **Leaderboard** — Top 3 players displayed as a compact horizontal strip
-- **Hidden Information** — Opponents' Ant-cents are hidden; only Net Worth is visible
+- **Roundtable Layout** — Players arranged in a circle around the central gold bar
+- **Animations** — Gold bar flip, bid-win glow, net worth pop, turn pulse, round/turn banners
+- **Leaderboard** — Top ranking players displayed as a compact horizontal strip
+- **Hidden Information** — Opponents' Cents are hidden; only Net Worth (total gold) is visible. Spectators cannot see gold bar purity.
 - **15-second Turn Timer** — Visual countdown bar; auto-pass on timeout
 - **Winner Overlay** — Trophy animation with "The Lootanant" title
 - **Player Manual** — In-app "How to Loot a King" guide

@@ -30,6 +30,11 @@ public class GameController {
         ));
     }
 
+    @GetMapping("/rooms")
+    public ResponseEntity<?> getRooms() {
+        return ResponseEntity.ok(gameService.getAvailableRooms());
+    }
+
     @PostMapping("/join")
     public ResponseEntity<?> joinRoom(@RequestBody Map<String, String> body) {
         String code = body.get("roomCode");
@@ -63,10 +68,35 @@ public class GameController {
         String code = (String) body.get("roomCode");
         String hid = (String) body.get("hostId");
         int winNetWorth = ((Number) body.get("winNetWorth")).intValue();
-        int startingAntCents = ((Number) body.get("startingAntCents")).intValue();
-        boolean ok = gameService.updateSettings(code, hid, winNetWorth, startingAntCents);
+        int startingCents = ((Number) body.get("startingCents")).intValue();
+        boolean ok = gameService.updateSettings(code, hid, winNetWorth, startingCents);
         if (!ok) return ResponseEntity.badRequest().body(Map.of("error", "Cannot update settings"));
         return ResponseEntity.ok(Map.of("status", "updated"));
+    }
+
+    @PostMapping("/reconnect")
+    public ResponseEntity<?> reconnect(@RequestBody Map<String, String> body) {
+        String code = body.get("roomCode");
+        String pid = body.get("playerId");
+        Player p = gameService.reconnect(code, pid);
+        if (p == null) return ResponseEntity.badRequest().body(Map.of("error", "Cannot reconnect"));
+        return ResponseEntity.ok(Map.of("status", "reconnected"));
+    }
+
+    @PostMapping("/spectate")
+    public ResponseEntity<?> spectate(@RequestBody Map<String, String> body) {
+        String code = body.get("roomCode");
+        String sid = gameService.joinAsSpectator(code);
+        if (sid == null) return ResponseEntity.badRequest().body(Map.of("error", "Cannot spectate"));
+        return ResponseEntity.ok(Map.of("playerId", sid));
+    }
+
+    @PostMapping("/leave")
+    public ResponseEntity<?> leave(@RequestBody Map<String, String> body) {
+        String code = body.get("roomCode");
+        String pid = body.get("playerId");
+        gameService.leaveRoom(code, pid);
+        return ResponseEntity.ok(Map.of("status", "left"));
     }
 
     @PostMapping("/start")

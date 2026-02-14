@@ -51,6 +51,17 @@ public class GameService {
         return available;
     }
 
+    public boolean discardRoom(String code, String hostId) {
+        GameRoom room = rooms.get(code);
+        if (room == null || room.isStarted()) return false;
+        if (!room.getHostId().equals(hostId)) return false;
+        rooms.remove(code);
+        // Notify all players in the room that it's been discarded
+        messagingTemplate.convertAndSend("/topic/room/" + code + "/roomDiscarded",
+                (Object) Map.of("discarded", true));
+        return true;
+    }
+
     public Player joinRoom(String code, String displayName) {
         GameRoom room = rooms.get(code);
         if (room == null || room.getPlayers().size() >= 8) return null;
@@ -454,7 +465,7 @@ public class GameService {
         return Map.of("status", "confirmed");
     }
 
-    private void startNewRound(GameRoom room) {
+    private synchronized void startNewRound(GameRoom room) {
         if (room.isFinished()) return;
 
         // Increment round number
@@ -481,10 +492,20 @@ public class GameService {
     private void advanceToNextBidder(GameRoom room) {
         int size = room.getPlayers().size();
         int idx = room.getCurrentPlayerIndex();
+        String highBidderId = room.getCurrentHighBidderId();
         for (int i = 0; i < size; i++) {
             idx = (idx + 1) % size;
             Player p = room.getPlayers().get(idx);
             if (!p.isPassedThisRound()) {
+                // Skip the current highest bidder — they can't outbid themselves
+                if (p.getId().equals(highBidderId)) {
+                    // If this is the only active bidder left, resolve
+                    if (room.activeBiddersCount() <= 1 || isOnlyNonPassedBesideHighBidder(room, highBidderId)) {
+                        resolveRound(room);
+                        return;
+                    }
+                    continue;
+                }
                 room.setCurrentPlayerIndex(idx);
                 broadcastState(room);
                 startTurnTimer(room);
@@ -492,8 +513,17 @@ public class GameService {
                 return;
             }
         }
-        // Everyone passed
+        // Everyone passed (or only high bidder remains)
         resolveRound(room);
+    }
+
+    private boolean isOnlyNonPassedBesideHighBidder(GameRoom room, String highBidderId) {
+        for (Player p : room.getPlayers()) {
+            if (!p.isPassedThisRound() && !p.getId().equals(highBidderId)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private void handleCpuTurnIfNeeded(GameRoom room) {
@@ -506,11 +536,15 @@ public class GameService {
             return;
         }
 
+        final String cpuId = current.getId();
+        final int expectedIndex = room.getCurrentPlayerIndex();
         scheduler.schedule(() -> {
             synchronized (this) {
                 if (room.isFinished()) return;
+                // Verify the turn hasn't moved to a different player
+                if (room.getCurrentPlayerIndex() != expectedIndex) return;
                 Player cpu = room.getPlayers().get(room.getCurrentPlayerIndex());
-                if (!cpu.getId().equals(current.getId())) return;
+                if (!cpu.getId().equals(cpuId)) return;
                 if (cpu.isPassedThisRound()) return;
                 executeCpuTurn(room, cpu);
             }
@@ -677,12 +711,17 @@ public class GameService {
 
     private void startTurnTimer(GameRoom room) {
         cancelTimer(room);
-        // Capture the current player's ID so the timer only auto-passes the correct player
+        // Capture the current player's ID AND round number so stale timers from previous rounds are ignored
         final String timerPlayerId = room.getPlayers().get(room.getCurrentPlayerIndex()).getId();
+        final int timerRound = room.getRoundNumber();
+        final int timerIndex = room.getCurrentPlayerIndex();
         ScheduledFuture<?> timer = scheduler.schedule(() -> {
             synchronized (this) {
                 if (room.isFinished()) return;
-                // Verify the turn hasn't moved to a different player
+                // Verify round hasn't changed (prevents stale timer from previous round)
+                if (room.getRoundNumber() != timerRound) return;
+                // Verify the turn index and player haven't changed
+                if (room.getCurrentPlayerIndex() != timerIndex) return;
                 Player current = room.getPlayers().get(room.getCurrentPlayerIndex());
                 if (!current.getId().equals(timerPlayerId)) return;
                 // Auto-pass on timeout

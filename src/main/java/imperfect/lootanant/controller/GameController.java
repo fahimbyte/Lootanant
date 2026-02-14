@@ -104,6 +104,15 @@ public class GameController {
         return ResponseEntity.ok(Map.of("playerId", sid));
     }
 
+    @PostMapping("/discardRoom")
+    public ResponseEntity<?> discardRoom(@RequestBody Map<String, String> body) {
+        String code = body.get("roomCode");
+        String hostId = body.get("hostId");
+        boolean ok = gameService.discardRoom(code, hostId);
+        if (!ok) return ResponseEntity.badRequest().body(Map.of("error", "Cannot discard room"));
+        return ResponseEntity.ok(Map.of("status", "discarded"));
+    }
+
     @PostMapping("/leave")
     public ResponseEntity<?> leave(@RequestBody Map<String, String> body) {
         String code = body.get("roomCode");

@@ -362,6 +362,7 @@ input:focus{border-color:#e94560}
   <div class="host-controls" id="hostControls" style="display:none">
     <button class="btn-secondary btn-small" onclick="addCpu()">+ Add CPU</button>
     <button class="btn-primary" onclick="startGame()">Start Game</button>
+    <button class="btn-secondary btn-small" onclick="discardRoom()" style="background:#e94560">← Back to Lobby</button>
   </div>
   <div class="game-settings" id="gameSettings" style="display:none">
     <h3>⚙️ Game Settings</h3>
@@ -436,7 +437,7 @@ input:focus{border-color:#e94560}
   <div class="auditor" id="taxAuditor">🐜👑</div>
   <h2>The King's Auditor Collects!</h2>
   <div id="taxDetails"></div>
-  <button class="tax-confirm-btn" id="taxConfirmBtn" onclick="confirmTaxRead()">✅ I've Read It — Continue</button>
+  <button class="tax-confirm-btn" id="taxConfirmBtn" onclick="confirmTaxRead()">Continue</button>
   <div class="tax-confirm-status" id="taxConfirmStatus"></div>
 </div>
 
@@ -766,6 +767,12 @@ async function leaveGame(){
   clearSession();
   location.reload();
 }
+async function discardRoom(){
+  if(!confirm('Are you sure? This will close the room for everyone.')) return;
+  await api('/discardRoom', {roomCode, hostId});
+  clearSession();
+  location.reload();
+}
 
 // ── Rename ──
 function scheduleRename(newName){
@@ -786,6 +793,12 @@ function connectWS(){
       const state=JSON.parse(msg.body);
       if(state.started&&!state.finished) renderGame(state);
       else if(!state.started) renderWaiting(state);
+    });
+    // Room discarded event
+    stompClient.subscribe('/topic/room/'+roomCode+'/roomDiscarded', msg=>{
+      toast('Room has been discarded by the host.');
+      clearSession();
+      location.reload();
     });
     // Game started event (ensures all players transition)
     stompClient.subscribe('/topic/room/'+roomCode+'/gameStarted', msg=>{
@@ -1303,7 +1316,7 @@ function showTaxOverlay(evt){
   const confirmBtn=document.getElementById('taxConfirmBtn');
   const confirmStatus=document.getElementById('taxConfirmStatus');
   confirmBtn.disabled=false;
-  confirmBtn.textContent='✅ I\'ve Read It — Continue';
+  confirmBtn.textContent='Continue';
   confirmStatus.textContent='';
   let html='<p style="color:#ffd700;font-size:1rem;margin:8px 0">Total collected: <b>'+evt.totalCollected+' ¢</b> → Vault: <b>'+evt.vaultTotal+' ¢</b></p>';
   (evt.details||[]).forEach(d=>{

@@ -1,6 +1,6 @@
 # Changelog
 
-## [2.0.2] - 2026-02-14
+## [2.0.3] - 2026-02-14
 
 ### Added
 - **Rage Mode**: A new intensive game mode with enhanced mechanics.

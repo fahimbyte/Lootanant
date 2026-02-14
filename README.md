@@ -54,9 +54,10 @@ Rage mode includes all Classic rules **plus** the following:
 
 #### 🏦 Take a Loan (The Recovery)
 
-- **Eligibility:** Players with **fewer than 3 Ant-cents** can take a loan.
-- **Benefit:** Player receives desired Ant-cents from the King's Vault (if available).
-- **Penalty:** Deduct **35%** of the player's Net Worth (minimum penalty: 3 Karats).
+- **Eligibility:** Players with **fewer than 3 Ant-cents** can take a loan (vault must have at least 5¢).
+- **The Offer:** The King offers **5 Ant-cents** (deducted from the King's Vault).
+- **Confirmation:** A modal asks: *"The King offers 5¢, but he will take 35% of your net worth. Do you accept the shame?"* with Confirm/Deny buttons.
+- **Penalty:** Deduct **35%** of the player's Net Worth (rounded to nearest whole number, minimum penalty: 3 Karats).
 - **Public:** A notification is displayed: *"[Player Name] took a desperate loan! Their net worth dropped by [X]!"*
 - **Animation:** The Vault shakes when a loan is taken.
 

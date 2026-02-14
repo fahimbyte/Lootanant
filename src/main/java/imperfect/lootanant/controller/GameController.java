@@ -165,11 +165,10 @@ public class GameController {
     }
 
     @PostMapping("/loan")
-    public ResponseEntity<?> loan(@RequestBody Map<String, Object> body) {
-        String code = (String) body.get("roomCode");
-        String pid = (String) body.get("playerId");
-        int amount = ((Number) body.get("amount")).intValue();
-        Map<String, Object> result = gameService.takeLoan(code, pid, amount);
+    public ResponseEntity<?> loan(@RequestBody Map<String, String> body) {
+        String code = body.get("roomCode");
+        String pid = body.get("playerId");
+        Map<String, Object> result = gameService.takeLoan(code, pid);
         if (result.containsKey("error")) {
             return ResponseEntity.badRequest().body(result);
         }

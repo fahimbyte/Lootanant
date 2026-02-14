@@ -243,7 +243,7 @@ public class GameService {
     }
 
     // ── Rage Mode: King's Loan ──
-    public synchronized Map<String, Object> takeLoan(String code, String playerId, int requestedAmount) {
+    public synchronized Map<String, Object> takeLoan(String code, String playerId) {
         GameRoom room = rooms.get(code);
         if (room == null || !room.isRageMode() || room.isFinished() || !room.isStarted()) {
             return Map.of("error", "Cannot take loan in this room");
@@ -255,19 +255,17 @@ public class GameService {
         if (player.getCents() >= 3) {
             return Map.of("error", "You must have fewer than 3 Ant-cents to take a loan");
         }
-        if (requestedAmount < 1) {
-            return Map.of("error", "Must request at least 1 Ant-cent");
-        }
-        if (room.getKingsVault() < requestedAmount) {
-            return Map.of("error", "Not enough Ant-cents in the King's Vault");
+        int loanAmount = 5;
+        if (room.getKingsVault() < loanAmount) {
+            return Map.of("error", "Not enough Ant-cents in the King's Vault (need 5¢)");
         }
 
-        // Transfer from vault to player
-        room.setKingsVault(room.getKingsVault() - requestedAmount);
-        player.setCents(player.getCents() + requestedAmount);
+        // Transfer 5¢ from vault to player
+        room.setKingsVault(room.getKingsVault() - loanAmount);
+        player.setCents(player.getCents() + loanAmount);
 
-        // Penalty: 35% of net worth (minimum 3 karats)
-        int penalty = Math.max(3, (int) Math.floor(player.getNetWorth() * 0.35));
+        // Penalty: 35% of net worth (rounded to nearest whole number, minimum 3 karats)
+        int penalty = Math.max(3, (int) Math.round(player.getNetWorth() * 0.35));
         player.setNetWorth(Math.max(0, player.getNetWorth() - penalty));
 
         // Public notification
@@ -277,11 +275,11 @@ public class GameService {
                         "message", player.getDisplayName() + " took a desperate loan! Their net worth dropped by " + penalty + "!",
                         "playerId", playerId,
                         "penalty", penalty,
-                        "amount", requestedAmount
+                        "amount", loanAmount
                 ));
 
         broadcastState(room);
-        return Map.of("status", "loan_taken", "penalty", penalty, "amount", requestedAmount);
+        return Map.of("status", "loan_taken", "penalty", penalty, "amount", loanAmount);
     }
 
     private void refundHighBidder(GameRoom room) {
@@ -343,16 +341,24 @@ public class GameService {
 
         messagingTemplate.convertAndSend("/topic/room/" + room.getRoomCode() + "/roundResult", (Object) roundResult);
 
+        // Broadcast income phase event for coin animation (after round result banner disappears)
+        scheduler.schedule(() -> {
+            if (room.isFinished()) return;
+            messagingTemplate.convertAndSend("/topic/room/" + room.getRoomCode() + "/incomePhase",
+                    (Object) Map.of("amount", 1, "message", "You Got: +1¢"));
+            broadcastState(room);
+        }, 5, TimeUnit.SECONDS);
+
         // Advance starting player clockwise
         room.setStartingPlayerIndex((room.getStartingPlayerIndex() + 1) % room.getPlayers().size());
 
         // Rage mode: Check if taxation phase should trigger (every 5 rounds)
         if (room.isRageMode() && room.getRoundNumber() % 5 == 0 && room.getRoundNumber() > 0) {
-            // Delay taxation phase to show after round result (longer delay so players can read round result first)
-            scheduler.schedule(() -> executeTaxationPhase(room), 5, TimeUnit.SECONDS);
+            // Delay taxation phase to show after round result + income animation
+            scheduler.schedule(() -> executeTaxationPhase(room), 8, TimeUnit.SECONDS);
         } else {
-            // Delay before next round for players to read results
-            scheduler.schedule(() -> startNewRound(room), 5, TimeUnit.SECONDS);
+            // Delay before next round for players to read results + income animation
+            scheduler.schedule(() -> startNewRound(room), 8, TimeUnit.SECONDS);
         }
     }
 
@@ -663,11 +669,8 @@ public class GameService {
             }
 
             // === Loan Strategy: take loans when broke and vault has money ===
-            if (cpu.getCents() < 2 && room.getKingsVault() >= 2 && cpu.getNetWorth() > 10) {
-                int loanAmt = Math.min(room.getKingsVault(), 3 + random.nextInt(3));
-                if (loanAmt >= 1) {
-                    takeLoan(room.getRoomCode(), cpu.getId(), loanAmt);
-                }
+            if (cpu.getCents() < 2 && room.getKingsVault() >= 5 && cpu.getNetWorth() > 10) {
+                takeLoan(room.getRoomCode(), cpu.getId());
             }
         }
     }

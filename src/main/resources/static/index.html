@@ -261,6 +261,25 @@ input:focus{border-color:#e94560}
 .manual-tab-content{display:none}
 .manual-tab-content.active{display:block}
 
+/* ── Income Phase: Flying Coin Animation ── */
+.flying-coin{position:fixed;font-size:1.5rem;z-index:95;pointer-events:none;opacity:1;transition:none}
+@keyframes coinFly{0%{opacity:1;transform:scale(1)}80%{opacity:1;transform:scale(.8)}100%{opacity:0;transform:scale(.5)}}
+
+/* King's Allowance Overlay */
+.allowance-overlay{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) scale(0);background:rgba(15,52,96,.92);border:2px solid #e94560;border-radius:16px;padding:16px 36px;z-index:92;text-align:center;pointer-events:none;opacity:0;transition:all .3s ease}
+.allowance-overlay.show{transform:translate(-50%,-50%) scale(1);opacity:1}
+.allowance-overlay .allowance-text{font-size:1.3rem;font-weight:800;color:#e94560;text-shadow:0 0 10px rgba(233,69,96,.6)}
+.allowance-overlay .allowance-icon{font-size:2rem;margin-bottom:4px}
+
+/* Balance Pop Effect */
+@keyframes balancePop{0%{transform:scale(1);color:#e0e0e0}30%{transform:scale(1.6);color:#4caf50}60%{transform:scale(1.1);color:#4caf50}100%{transform:scale(1);color:#e0e0e0}}
+.balance-pop{animation:balancePop .6s ease}
+.balance-flash{position:absolute;top:-14px;right:-10px;color:#4caf50;font-size:.7rem;font-weight:800;opacity:0;animation:flashUp .8s ease forwards;pointer-events:none}
+@keyframes flashUp{0%{opacity:1;transform:translateY(0)}100%{opacity:0;transform:translateY(-16px)}}
+
+/* Tax Reverse Coin (flies from player to vault) */
+.tax-coin{position:fixed;font-size:1.2rem;z-index:95;pointer-events:none;opacity:1}
+
 /* Mobile */
 @media(max-width:600px){
   #gameBoard{padding:8px}
@@ -440,16 +459,11 @@ input:focus{border-color:#e94560}
 <div class="loan-modal" id="loanModal">
   <div class="loan-modal-content">
     <h3>🏦 Take a Loan</h3>
-    <p style="color:#aaa;font-size:.85rem">Borrow from the King's Vault</p>
-    <p class="loan-warning">⚠️ Penalty: 35% of your Net Worth (min 3 Karats)</p>
-    <div>
-      <label style="color:#ccc;font-size:.85rem">Amount to borrow:</label>
-      <input type="number" id="loanAmountInput" min="1" value="1">
-    </div>
+    <p style="color:#ccc;font-size:.95rem;margin:12px 0;line-height:1.5">The King offers <b style="color:#ffd700">5¢</b>, but he will take <b style="color:#e94560">35%</b> of your net worth.<br>Do you accept the shame?</p>
     <p style="color:#888;font-size:.75rem;margin-top:4px">Vault has: <b id="loanVaultDisplay">0</b> ¢</p>
-    <div style="display:flex;gap:8px;justify-content:center;margin-top:12px">
-      <button class="btn-loan" onclick="doLoan()">Take Loan</button>
-      <button class="btn-secondary btn-small" onclick="closeLoanModal()">Cancel</button>
+    <div style="display:flex;gap:8px;justify-content:center;margin-top:14px">
+      <button class="btn-loan" onclick="doLoan()">✅ Confirm</button>
+      <button class="btn-secondary btn-small" onclick="closeLoanModal()">❌ Deny</button>
     </div>
   </div>
 </div>
@@ -531,8 +545,8 @@ input:focus{border-color:#e94560}
       <h3>🏦 Take a Loan (The Recovery)</h3>
       <ul>
         <li><span class="icon">📉</span><b>Eligibility:</b> Only players with <b>fewer than 3 ¢</b> can take a loan.</li>
-        <li><span class="icon">💵</span><b>Benefit:</b> Borrow desired Ant-cents from the King's Vault (if available).</li>
-        <li><span class="icon">⚠️</span><b>Penalty:</b> Lose <b>35%</b> of your Net Worth (minimum 3 Karats).</li>
+        <li><span class="icon">💵</span><b>The Offer:</b> The King offers <b>5 ¢</b> (deducted from the Vault).</li>
+        <li><span class="icon">⚠️</span><b>Penalty:</b> Lose <b>35%</b> of your Net Worth (rounded to nearest whole number, minimum 3 Karats).</li>
         <li><span class="icon">📢</span><b>Public:</b> Everyone sees a notification: <i>"[Player] took a desperate loan!"</i></li>
       </ul>
 
@@ -636,7 +650,7 @@ function toast(msg,dur){
   setTimeout(()=>t.classList.remove('show'),dur||6000);
 }
 
-function showRoundBanner(title,text,extra){
+function showRoundBanner(title,text,extra,duration){
   const b=document.getElementById('roundBanner');
   document.getElementById('roundBannerTitle').textContent=title;
   document.getElementById('roundBannerText').textContent=text;
@@ -647,7 +661,7 @@ function showRoundBanner(title,text,extra){
     existingRN.textContent=extra;
   } else if(existingRN){existingRN.remove();}
   b.classList.add('show');
-  setTimeout(()=>b.classList.remove('show'),5000);
+  setTimeout(()=>b.classList.remove('show'),duration||5000);
 }
 
 function showTurnBanner(msg){
@@ -780,13 +794,18 @@ function connectWS(){
         if(state.started) renderGame(state);
       });
     });
+    // Income phase animation
+    stompClient.subscribe('/topic/room/'+roomCode+'/incomePhase', msg=>{
+      const data=JSON.parse(msg.body);
+      playIncomeAnimation(data);
+    });
     // Round results
     stompClient.subscribe('/topic/room/'+roomCode+'/roundResult', msg=>{
       const r=JSON.parse(msg.body);
       if(r.discarded){
-        showRoundBanner('Bar Discarded!','No bids this round. +1 ¢ for everyone.','Round '+(roundNum)+' ended');
+        showRoundBanner('Bar Discarded!','No bids this round.','Round '+(roundNum)+' ended');
       } else {
-        let winMsg='Paid '+r.bidPaid+' ¢ for a '+r.purity+'k purity gold bar. +1 ¢ for all.';
+        let winMsg='Paid '+r.bidPaid+' ¢ for a '+r.purity+'k purity gold bar.';
         if(r.jackpotRound && r.jackpotAmount){
           winMsg='Paid '+r.bidPaid+' ¢ for a '+r.purity+'k bar + 💰 '+r.jackpotAmount+' ¢ JACKPOT from the Vault!';
           toast('🎰 VAULT JACKPOT! '+r.roundWinner+' wins '+r.jackpotAmount+' ¢ from the King\'s Vault! (max 20¢)',8000);
@@ -806,7 +825,9 @@ function connectWS(){
         vault.classList.add('shake');
         setTimeout(()=>vault.classList.remove('shake'),600);
       } else if(evt.type==='taxation'){
-        showTaxOverlay(evt);
+        // Play reverse coin animation (players → vault) before showing overlay
+        playTaxReverseAnimation(evt.details);
+        setTimeout(()=>showTaxOverlay(evt),1200);
       }
     });
     // Winner
@@ -935,7 +956,7 @@ function renderGame(state){
       // Loan button: only enabled if player has < 3 cents
       const me=state.players.find(p=>p.id===playerId);
       const loanBtn=document.getElementById('loanBtn');
-      if(me&&me.cents<3&&vaultAmt>0){
+      if(me&&me.cents<3&&vaultAmt>=5){
         loanBtn.disabled=false;loanBtn.style.opacity='1';
       } else {
         loanBtn.disabled=true;loanBtn.style.opacity='.4';
@@ -964,10 +985,10 @@ function renderGame(state){
       const isJackpot=currentGameMode==='rage'&&state.isJackpotRound;
       if(isJackpot){
         toast('🎰 JACKPOT ROUND '+roundNum+'! Winner gets the gold bar + up to 20¢ from the Vault!',8000);
-        showRoundBanner('🎰 Jackpot Round!','A '+state.currentGoldBarPurity+'k gold bar — Key to the Vault! Winner takes up to 20¢ (Vault: '+((state.kingsVault||0))+' ¢)!','📢 Round '+roundNum+' starts now!');
+        showRoundBanner('🎰 Jackpot Round!','A '+state.currentGoldBarPurity+'k gold bar — Key to the Vault! Winner takes up to 20¢ (Vault: '+((state.kingsVault||0))+' ¢)!','📢 Round '+roundNum+' starts now!', 1000);
       } else {
         toast('📢 A new round has started! Round '+roundNum,6000);
-        showRoundBanner('🧈 New Gold Bar!','A '+state.currentGoldBarPurity+'k purity gold bar has appeared!','📢 Round '+roundNum+' starts now!');
+        showRoundBanner('🧈 New Gold Bar!','📢 Round '+roundNum+' starts now!', null, 1000);
       }
     }
   }
@@ -1097,6 +1118,100 @@ async function doPass(){
   await api('/pass',{roomCode,playerId});
 }
 
+// ── Income Phase Animation ──
+function playIncomeAnimation(data){
+  // 1. Show "KING'S ALLOWANCE" overlay
+  let overlay=document.getElementById('allowanceOverlay');
+  if(!overlay){
+    overlay=document.createElement('div');
+    overlay.id='allowanceOverlay';
+    overlay.className='allowance-overlay';
+    overlay.innerHTML='<div class="allowance-icon">👑💰</div><div class="allowance-text">You Got: +1¢</div>';
+    document.body.appendChild(overlay);
+  }
+  void overlay.offsetWidth;
+  overlay.classList.add('show');
+  setTimeout(()=>overlay.classList.remove('show'),1400);
+
+  // 2. Spawn flying coins toward each player's balance area
+  const playerCards=document.querySelectorAll('.player-card');
+  const startX=window.innerWidth/2;
+  const startY=window.innerHeight/2;
+  playerCards.forEach((card,i)=>{
+    setTimeout(()=>{
+      const coin=document.createElement('div');
+      coin.className='flying-coin';
+      coin.textContent='🪙';
+      coin.style.left=startX+'px';
+      coin.style.top=startY+'px';
+      document.body.appendChild(coin);
+      const rect=card.getBoundingClientRect();
+      const endX=rect.left+rect.width/2;
+      const endY=rect.top+rect.height/2;
+      // Bezier curve via CSS transition
+      requestAnimationFrame(()=>{
+        coin.style.transition='left 0.8s cubic-bezier(.17,.67,.35,1.2), top 0.8s cubic-bezier(.17,.67,.83,.67), opacity 0.8s ease';
+        coin.style.left=endX+'px';
+        coin.style.top=endY+'px';
+        coin.style.opacity='0';
+      });
+      // 3. Balance pop when coin arrives
+      setTimeout(()=>{
+        coin.remove();
+        // Flash the balance stat green
+        const stats=card.querySelectorAll('.stat');
+        stats.forEach(s=>{
+          if(s.textContent.includes('¢')){
+            s.classList.remove('balance-pop');
+            void s.offsetWidth;
+            s.classList.add('balance-pop');
+            // Add +1¢ flash
+            const flash=document.createElement('span');
+            flash.className='balance-flash';
+            flash.textContent='+1¢';
+            card.appendChild(flash);
+            setTimeout(()=>flash.remove(),900);
+          }
+        });
+      },800);
+    },i*120);
+  });
+}
+
+// ── Tax Reverse Animation (coins fly from players to vault) ──
+function playTaxReverseAnimation(taxDetails){
+  const vaultEl=document.getElementById('kingsVault');
+  if(!vaultEl||vaultEl.style.display==='none')return;
+  const vaultRect=vaultEl.getBoundingClientRect();
+  const endX=vaultRect.left+vaultRect.width/2;
+  const endY=vaultRect.top+vaultRect.height/2;
+  const playerCards=document.querySelectorAll('.player-card');
+  playerCards.forEach((card,i)=>{
+    const detail=taxDetails&&taxDetails[i];
+    if(detail&&detail.taxAmount<=0)return;
+    setTimeout(()=>{
+      const rect=card.getBoundingClientRect();
+      const coin=document.createElement('div');
+      coin.className='tax-coin';
+      coin.textContent='🪙';
+      coin.style.left=(rect.left+rect.width/2)+'px';
+      coin.style.top=(rect.top+rect.height/2)+'px';
+      document.body.appendChild(coin);
+      requestAnimationFrame(()=>{
+        coin.style.transition='left 1s cubic-bezier(.17,.67,.35,1.2), top 1s cubic-bezier(.17,.67,.83,.67), opacity 1s ease';
+        coin.style.left=endX+'px';
+        coin.style.top=endY+'px';
+        coin.style.opacity='0';
+      });
+      setTimeout(()=>{
+        coin.remove();
+        vaultEl.classList.add('glow');
+        setTimeout(()=>vaultEl.classList.remove('glow'),800);
+      },1000);
+    },i*150);
+  });
+}
+
 // ── Timer Bar ──
 function startTimerBar(){
   stopTimerBar();
@@ -1169,17 +1284,14 @@ function openLoanModal(){
   if(!prevState)return;
   const vault=prevState.kingsVault||0;
   document.getElementById('loanVaultDisplay').textContent=vault;
-  document.getElementById('loanAmountInput').max=vault;
-  document.getElementById('loanAmountInput').value=Math.min(vault,3);
   document.getElementById('loanModal').classList.add('active');
 }
 function closeLoanModal(){document.getElementById('loanModal').classList.remove('active')}
 async function doLoan(){
-  const amount=parseInt(document.getElementById('loanAmountInput').value)||1;
   closeLoanModal();
-  const res=await api('/loan',{roomCode,playerId,amount});
+  const res=await api('/loan',{roomCode,playerId});
   if(res.error)toast('❌ '+res.error);
-  else toast('🏦 Loan taken! Lost '+res.penalty+' Karats.',4000);
+  else toast('🏦 Loan taken! +5¢ but lost '+res.penalty+' Karats.',5000);
 }
 
 // ── Rage Mode: Tax Overlay ──

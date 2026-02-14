@@ -369,8 +369,10 @@ public class GameService {
             int baseTaxPercent = 25;
             int bribeTax = p.getBribeTaxPercent();
             int totalTaxPercent = baseTaxPercent + bribeTax;
-            int taxAmount = (int) Math.floor(p.getCents() * totalTaxPercent / 100.0);
+            // Tax is calculated based on net worth, then deducted from cents
+            int taxAmount = (int) Math.floor(p.getNetWorth() * totalTaxPercent / 100.0);
 
+            // Cannot deduct more cents than the player has
             if (taxAmount > p.getCents()) {
                 taxAmount = p.getCents();
             }
@@ -492,11 +494,18 @@ public class GameService {
         Player current = room.getPlayers().get(room.getCurrentPlayerIndex());
         if (!current.isCpu()) return;
 
+        // Safety check: if this CPU has already passed, skip immediately
+        if (current.isPassedThisRound()) {
+            advanceToNextBidder(room);
+            return;
+        }
+
         scheduler.schedule(() -> {
             synchronized (this) {
                 if (room.isFinished()) return;
                 Player cpu = room.getPlayers().get(room.getCurrentPlayerIndex());
                 if (!cpu.getId().equals(current.getId())) return;
+                if (cpu.isPassedThisRound()) return;
                 executeCpuTurn(room, cpu);
             }
         }, 2 + random.nextInt(3), TimeUnit.SECONDS);

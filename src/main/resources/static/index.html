@@ -280,6 +280,14 @@ input:focus{border-color:#e94560}
 /* Tax Reverse Coin (flies from player to vault) */
 .tax-coin{position:fixed;font-size:1.2rem;z-index:95;pointer-events:none;opacity:1}
 
+/* ── Royal Ledger (Activity Feed) ── */
+.royal-ledger{position:fixed;bottom:20px;left:20px;max-width:300px;z-index:60;pointer-events:none;display:flex;flex-direction:column-reverse;gap:4px}
+.royal-ledger .ledger-item{pointer-events:auto;background:rgba(0,0,0,.4);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:8px 12px;font-size:.8rem;color:#e0e0e0;line-height:1.4;animation:ledgerSlideIn .4s ease;transition:opacity .3s}
+.royal-ledger .ledger-item.rage-glow{animation:ledgerSlideIn .4s ease, rageGlow 1s ease}
+@keyframes ledgerSlideIn{0%{transform:translateX(-30px);opacity:0}100%{transform:translateX(0);opacity:1}}
+@keyframes rageGlow{0%{box-shadow:0 0 0 rgba(233,69,96,0)}30%{box-shadow:0 0 15px rgba(233,69,96,.7)}100%{box-shadow:0 0 0 rgba(233,69,96,0)}}
+.ledger-toggle{position:fixed;bottom:20px;left:20px;background:rgba(0,0,0,.5);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.1);border-radius:50%;width:36px;height:36px;display:none;align-items:center;justify-content:center;font-size:1.1rem;cursor:pointer;pointer-events:auto;z-index:61}
+
 /* Mobile */
 @media(max-width:600px){
   #gameBoard{padding:8px}
@@ -309,6 +317,9 @@ input:focus{border-color:#e94560}
   .rage-panel{padding:8px 10px;gap:6px}
   .mode-selector{flex-direction:column;gap:6px}
   .mode-btn{padding:10px 8px}
+  .royal-ledger{top:80px;bottom:auto;left:10px;max-width:90vw}
+  .royal-ledger.collapsed .ledger-item:not(:last-child){display:none}
+  .ledger-toggle{display:flex;top:80px;bottom:auto;left:auto;right:10px}
 }
 </style>
 </head>
@@ -530,7 +541,8 @@ input:focus{border-color:#e94560}
       <h3>🏦 The King's Vault & Taxation</h3>
       <ul>
         <li><span class="icon">📅</span><b>Every 5 Rounds:</b> A <b>Taxation Phase</b> triggers after the auction.</li>
-        <li><span class="icon">💸</span><b>Base Tax:</b> Every player is taxed <b>25%</b> of their total Ant-cents (rounded down).</li>
+        <li><span class="icon">💸</span><b>Tax Calculation:</b> Every player is taxed <b>25%</b> of their <b>Net Worth</b> (rounded to the nearest whole number).</li>
+        <li><span class="icon">¢</span><b>Deduction:</b> The tax amount is deducted from your Ant-cents.</li>
         <li><span class="icon">🏦</span><b>The Vault:</b> All taxed cents go into the <b>King's Vault</b> — a golden chest displayed prominently on screen.</li>
       </ul>
 
@@ -577,6 +589,10 @@ input:focus{border-color:#e94560}
 <!-- Toast -->
 <div class="toast" id="toast"></div>
 
+<!-- Royal Ledger (Activity Feed) -->
+<div class="royal-ledger collapsed" id="royalLedger"></div>
+<div class="ledger-toggle" id="ledgerToggle" onclick="toggleLedger()">📜</div>
+
 <!-- SockJS + STOMP -->
 <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
@@ -589,6 +605,8 @@ let hasPendingAction = false; // Guard against double-action from stale state
 let selectedGameMode = 'classic';
 let currentGameMode = 'classic';
 let prevVaultAmount = 0;
+let ledgerItems = [];
+let ledgerCollapsed = true;
 
 // ── Mode Selection ──
 function selectMode(mode){
@@ -768,6 +786,11 @@ async function leaveGame(){
   clearSession();
   location.reload();
 }
+async function leaveSpectator(){
+  await api('/leave', {roomCode, playerId});
+  clearSession();
+  location.reload();
+}
 async function discardRoom(){
   if(!confirm('Are you sure? This will close the room for everyone.')) return;
   await api('/discardRoom', {roomCode, hostId});
@@ -812,19 +835,23 @@ function connectWS(){
     stompClient.subscribe('/topic/room/'+roomCode+'/incomePhase', msg=>{
       const data=JSON.parse(msg.body);
       playIncomeAnimation(data);
+      addLedgerItem('👑 King\'s Allowance: +1¢ for everyone');
     });
     // Round results
     stompClient.subscribe('/topic/room/'+roomCode+'/roundResult', msg=>{
       const r=JSON.parse(msg.body);
       if(r.discarded){
         showRoundBanner('Bar Discarded!','No bids this round.','Round '+(roundNum)+' ended');
+        addLedgerItem('Round '+roundNum+': Gold bar discarded (no bids)');
       } else {
         let winMsg='Paid '+r.bidPaid+' ¢ for a '+r.purity+'k purity gold bar.';
         if(r.jackpotRound && r.jackpotAmount){
           winMsg='Paid '+r.bidPaid+' ¢ for a '+r.purity+'k bar + 💰 '+r.jackpotAmount+' ¢ JACKPOT from the Vault!';
           toast('🎰 VAULT JACKPOT! '+r.roundWinner+' wins '+r.jackpotAmount+' ¢ from the King\'s Vault! (max 20¢)',8000);
+          addLedgerItem('🎰 '+r.roundWinner+' won JACKPOT! +'+r.jackpotAmount+'¢ from Vault', true);
         }
         showRoundBanner(r.jackpotRound?'🎰 JACKPOT! '+r.roundWinner+' Wins!':'🔨 '+r.roundWinner+' Wins the Bid!',winMsg,'Round '+(roundNum)+' ended');
+        addLedgerItem('Round '+roundNum+': '+r.roundWinner+' won '+r.purity+'k bar for '+r.bidPaid+'¢');
       }
     });
     // Rage events (bribe, loan, taxation)
@@ -832,8 +859,10 @@ function connectWS(){
       const evt=JSON.parse(msg.body);
       if(evt.type==='bribe'){
         toast('🗡️ '+evt.message,4000);
+        addLedgerItem('🗡️ '+evt.message, true);
       } else if(evt.type==='loan'){
         toast('🏦 '+evt.message,4000);
+        addLedgerItem('🏦 '+evt.message, true);
         // Shake vault animation
         const vault=document.getElementById('kingsVault');
         vault.classList.add('shake');
@@ -842,6 +871,7 @@ function connectWS(){
         // Play reverse coin animation (players → vault) before showing overlay
         playTaxReverseAnimation(evt.details);
         setTimeout(()=>showTaxOverlay(evt),1200);
+        addLedgerItem('💸 Tax collected: '+evt.totalCollected+'¢ → Vault: '+evt.vaultTotal+'¢');
       }
     });
     // Winner
@@ -1115,8 +1145,13 @@ function renderGame(state){
   }
   if(state.isSpectator) {
     document.getElementById('turnIndicator').textContent = (state.currentTurnPlayerId && !state.finished) ? 'Watching...' : (state.finished ? 'Game Over' : 'Waiting...');
+    // Show leave button for spectators (goes back to lobby)
     const leaveBtn = document.getElementById('leaveBtn');
-    if (leaveBtn) leaveBtn.style.display = 'none';
+    if (leaveBtn) {
+      leaveBtn.style.display = '';
+      leaveBtn.textContent = '🚪 Leave';
+      leaveBtn.onclick = leaveSpectator;
+    }
   }
 
   prevState=JSON.parse(JSON.stringify(state));
@@ -1319,6 +1354,24 @@ async function doLoan(){
 // ── Rage Mode: Tax Overlay ──
 let taxConfirmed=false;
 function showTaxOverlay(evt){
+  // Spectators auto-dismiss tax overlay after a brief view
+  if(isSpectator){
+    const overlay=document.getElementById('taxOverlay');
+    const details=document.getElementById('taxDetails');
+    let html='<p style="color:#ffd700;font-size:1rem;margin:8px 0">Total collected: <b>'+evt.totalCollected+' ¢</b> → Vault: <b>'+evt.vaultTotal+' ¢</b></p>';
+    (evt.details||[]).forEach(d=>{
+      const bribeTag=d.hadBribe?' <span style="color:#e94560">(+bribe!)</span>':'';
+      html+='<p class="tax-detail">'+d.playerName+': -'+d.taxAmount+' ¢ ('+d.taxPercent+'% tax)'+bribeTag+'</p>';
+    });
+    details.innerHTML=html;
+    document.getElementById('taxConfirmBtn').style.display='none';
+    document.getElementById('taxConfirmStatus').textContent='Auto-dismissing (spectator)...';
+    overlay.classList.add('active');
+    const auditor=document.getElementById('taxAuditor');
+    auditor.style.animation='none';void auditor.offsetWidth;auditor.style.animation='auditorWalk 3s ease-in-out';
+    setTimeout(()=>{ overlay.classList.remove('active'); document.getElementById('taxConfirmBtn').style.display=''; },5000);
+    return;
+  }
   taxConfirmed=false;
   const overlay=document.getElementById('taxOverlay');
   const details=document.getElementById('taxDetails');
@@ -1357,6 +1410,30 @@ function updateTaxConfirmStatus(state){
   }
   const status=document.getElementById('taxConfirmStatus');
   if(status) status.textContent=(state.taxConfirmedCount||0)+'/'+( state.taxTotalPlayers||0)+' players confirmed';
+}
+
+// ── Royal Ledger (Activity Feed) ──
+function addLedgerItem(text, isRage){
+  ledgerItems.push({text, isRage, time:Date.now()});
+  if(ledgerItems.length>5) ledgerItems.shift();
+  renderLedger();
+}
+function renderLedger(){
+  const el=document.getElementById('royalLedger');
+  if(!el)return;
+  el.innerHTML='';
+  ledgerItems.forEach(item=>{
+    const div=document.createElement('div');
+    div.className='ledger-item'+(item.isRage?' rage-glow':'');
+    div.textContent=item.text;
+    el.appendChild(div);
+  });
+}
+function toggleLedger(){
+  const el=document.getElementById('royalLedger');
+  ledgerCollapsed=!ledgerCollapsed;
+  el.classList.toggle('collapsed',ledgerCollapsed);
+  document.getElementById('ledgerToggle').textContent=ledgerCollapsed?'📜':'✕';
 }
 </script>
 </body>

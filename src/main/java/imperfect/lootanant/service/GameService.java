@@ -121,6 +121,11 @@ public class GameService {
     public void leaveRoom(String code, String playerId) {
         GameRoom room = rooms.get(code);
         if (room == null) return;
+        // Check if spectator
+        if (room.getSpectatorIds().remove(playerId)) {
+            broadcastState(room);
+            return;
+        }
         Player p = room.getPlayerById(playerId);
         if (p != null) {
             p.setCents(0);
@@ -453,11 +458,14 @@ public class GameService {
         // Set waiting for confirmation BEFORE sending events so frontend doesn't close overlay
         room.setWaitingForTaxConfirmation(true);
         room.getTaxConfirmedPlayerIds().clear();
-        // Auto-confirm for CPU players
+        // Auto-confirm for CPU players and spectators
         for (Player p : room.getPlayers()) {
             if (p.isCpu()) {
                 room.getTaxConfirmedPlayerIds().add(p.getId());
             }
+        }
+        for (String specId : room.getSpectatorIds()) {
+            room.getTaxConfirmedPlayerIds().add(specId);
         }
 
         messagingTemplate.convertAndSend("/topic/room/" + room.getRoomCode() + "/rageEvent", (Object) taxResult);

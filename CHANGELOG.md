@@ -1,5 +1,23 @@
 # Changelog
 
+## [2.1.0] - 2026-02-15
+
+### Added
+- **Royal Ledger (Activity Feed)**: Introduced a glassmorphism-styled activity feed to track game events (bribes, loans, taxation, round results, income phase).
+- **Spectator Leave Functionality**: Spectators can now leave the room via a "🚪 Leave" button.
+- **Room Status in Lobby**: Added status indicators ("waiting" or "in-game") for rooms in the available rooms list.
+
+### Changed
+- **Spectator Experience**: Tax details overlay now auto-dismisses for spectators after 5 seconds, and spectators auto-confirm tax phases to avoid blocking players.
+- **Tax Calculation**: Standardized taxation to be 25% of Net Worth (rounded to nearest whole number), deducted from cents.
+- **Improved Sync**: `roundNum` is now accurately synced from the server state.
+- **Memory Management**: Added automatic purging of stale/finished rooms after 30 minutes of inactivity.
+
+### Fixed
+- **Double-Bidding Bug**: Resolved an issue where rapid bidding/passing could cause stale state broadcasts.
+- **Tax Rounding**: Fixed a 5¢ discrepancy in the King's Vault due to incorrect rounding in taxation.
+- **Thread Safety**: Synchronized game state mutations in scheduled tasks to prevent race conditions.
+
 ## [2.0.3] - 2026-02-14
 
 ### Added

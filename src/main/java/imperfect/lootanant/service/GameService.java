@@ -15,9 +15,31 @@ public class GameService {
     private final SimpMessagingTemplate messagingTemplate;
     private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(4);
     private final Random random = new Random();
+    private static final long ROOM_EXPIRY_MINUTES = 30;
 
     public GameService(SimpMessagingTemplate messagingTemplate) {
         this.messagingTemplate = messagingTemplate;
+        // Periodically purge finished/empty rooms to prevent memory leaks
+        scheduler.scheduleAtFixedRate(this::purgeStaleRooms, 5, 5, TimeUnit.MINUTES);
+    }
+
+    private void purgeStaleRooms() {
+        long now = System.currentTimeMillis();
+        rooms.entrySet().removeIf(entry -> {
+            GameRoom room = entry.getValue();
+            // Remove finished games older than expiry
+            if (room.isFinished() && now - room.getLastActivityTime() > ROOM_EXPIRY_MINUTES * 60 * 1000) {
+                cancelTimer(room);
+                return true;
+            }
+            // Remove rooms where all players are disconnected for too long
+            boolean allDisconnected = room.getPlayers().stream().noneMatch(p -> p.isConnected() && !p.isCpu());
+            if (allDisconnected && now - room.getLastActivityTime() > ROOM_EXPIRY_MINUTES * 60 * 1000) {
+                cancelTimer(room);
+                return true;
+            }
+            return false;
+        });
     }
 
     public GameRoom createRoom(String hostName, String gameMode) {
@@ -41,11 +63,12 @@ public class GameService {
         List<Map<String, String>> available = new ArrayList<>();
         rooms.forEach((code, room) -> {
             if (!room.isFinished()) {
-                available.add(Map.of(
-                        "roomCode", code,
-                        "hostName", room.getPlayers().get(0).getDisplayName(),
-                        "gameMode", room.getGameMode()
-                ));
+                Map<String, String> info = new HashMap<>();
+                info.put("roomCode", code);
+                info.put("hostName", room.getPlayers().get(0).getDisplayName());
+                info.put("gameMode", room.getGameMode());
+                info.put("status", room.isStarted() ? "in-game" : "waiting");
+                available.add(info);
             }
         });
         return available;
@@ -170,6 +193,7 @@ public class GameService {
     public synchronized boolean placeBid(String code, String playerId, int bidAmount) {
         GameRoom room = rooms.get(code);
         if (room == null || room.isFinished() || !room.isStarted()) return false;
+        room.touchActivity();
 
         Player current = room.getPlayers().get(room.getCurrentPlayerIndex());
         if (!current.getId().equals(playerId)) return false;
@@ -185,7 +209,7 @@ public class GameService {
         room.setCurrentHighBid(bidAmount);
         room.setCurrentHighBidderId(playerId);
 
-        broadcastState(room);
+        // Advance first, then broadcast the updated state together
         advanceToNextBidder(room);
         return true;
     }
@@ -193,6 +217,7 @@ public class GameService {
     public synchronized boolean pass(String code, String playerId) {
         GameRoom room = rooms.get(code);
         if (room == null || room.isFinished() || !room.isStarted()) return false;
+        room.touchActivity();
 
         Player current = room.getPlayers().get(room.getCurrentPlayerIndex());
         if (!current.getId().equals(playerId)) return false;
@@ -204,7 +229,7 @@ public class GameService {
         if (room.activeBiddersCount() <= 1) {
             resolveRound(room);
         } else {
-            broadcastState(room);
+            // Advance BEFORE broadcasting to avoid showing stale turn to the next player
             advanceToNextBidder(room);
         }
         return true;
@@ -304,6 +329,7 @@ public class GameService {
 
     private void resolveRound(GameRoom room) {
         cancelTimer(room);
+        room.touchActivity();
         String winnerId = room.getCurrentHighBidderId();
         Map<String, Object> roundResult = new HashMap<>();
 
@@ -354,10 +380,12 @@ public class GameService {
 
         // Broadcast income phase event for coin animation (after round result banner disappears)
         scheduler.schedule(() -> {
-            if (room.isFinished()) return;
-            messagingTemplate.convertAndSend("/topic/room/" + room.getRoomCode() + "/incomePhase",
-                    (Object) Map.of("amount", 1, "message", "You Got: +1¢"));
-            broadcastState(room);
+            synchronized (this) {
+                if (room.isFinished()) return;
+                messagingTemplate.convertAndSend("/topic/room/" + room.getRoomCode() + "/incomePhase",
+                        (Object) Map.of("amount", 1, "message", "You Got: +1¢"));
+                broadcastState(room);
+            }
         }, 5, TimeUnit.SECONDS);
 
         // Advance starting player clockwise
@@ -366,16 +394,21 @@ public class GameService {
         // Rage mode: Check if taxation phase should trigger (every 5 rounds)
         if (room.isRageMode() && room.getRoundNumber() % 5 == 0 && room.getRoundNumber() > 0) {
             // Delay taxation phase to show after round result + income animation
-            scheduler.schedule(() -> executeTaxationPhase(room), 8, TimeUnit.SECONDS);
+            scheduler.schedule(() -> {
+                synchronized (this) { executeTaxationPhase(room); }
+            }, 8, TimeUnit.SECONDS);
         } else {
             // Delay before next round for players to read results + income animation
-            scheduler.schedule(() -> startNewRound(room), 8, TimeUnit.SECONDS);
+            scheduler.schedule(() -> {
+                synchronized (this) { startNewRound(room); }
+            }, 8, TimeUnit.SECONDS);
         }
     }
 
     // ── Rage Mode: Taxation Phase ──
     private synchronized void executeTaxationPhase(GameRoom room) {
         if (room.isFinished()) return;
+        room.touchActivity();
 
         room.setTaxationPhaseActive(true);
         Map<String, Object> taxResult = new HashMap<>();
@@ -387,7 +420,7 @@ public class GameService {
             int bribeTax = p.getBribeTaxPercent();
             int totalTaxPercent = baseTaxPercent + bribeTax;
             // Tax is calculated based on net worth, then deducted from cents
-            int taxAmount = (int) Math.floor(p.getNetWorth() * totalTaxPercent / 100.0);
+            int taxAmount = (int) Math.round(p.getNetWorth() * totalTaxPercent / 100.0);
 
             // Cannot deduct more cents than the player has
             if (taxAmount > p.getCents()) {
@@ -467,6 +500,7 @@ public class GameService {
 
     private synchronized void startNewRound(GameRoom room) {
         if (room.isFinished()) return;
+        room.touchActivity();
 
         // Increment round number
         room.setRoundNumber(room.getRoundNumber() + 1);

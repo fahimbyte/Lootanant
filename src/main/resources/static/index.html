@@ -585,6 +585,7 @@ input:focus{border-color:#e94560}
 let roomCode='', playerId='', hostId='', stompClient=null, timerInterval=null;
 let prevState=null, roundNum=0, prevTurnPlayerId=null, renameTimeout=null;
 let isSpectator = false;
+let hasPendingAction = false; // Guard against double-action from stale state
 let selectedGameMode = 'classic';
 let currentGameMode = 'classic';
 let prevVaultAmount = 0;
@@ -982,6 +983,9 @@ function renderGame(state){
     ragePanelEl.style.display='none';
   }
 
+  // Sync round number from server
+  roundNum=state.roundNumber||0;
+
   // Deed card
   const purityEl=document.getElementById('deedValue');
   const goldBarCard=document.getElementById('deedCard');
@@ -994,7 +998,6 @@ function renderGame(state){
     goldBarCard.classList.add('flip-in');
     if(currentGameMode==='rage'&&state.isJackpotRound) goldBarCard.classList.add('jackpot-card');
     if(prevState&&prevState.currentGoldBarPurity!==state.currentGoldBarPurity){
-      roundNum++;
       const isJackpot=currentGameMode==='rage'&&state.isJackpotRound;
       if(isJackpot){
         toast('🎰 JACKPOT ROUND '+roundNum+'! Winner gets the gold bar + up to 20¢ from the Vault!',8000);
@@ -1083,9 +1086,9 @@ function renderGame(state){
     table.appendChild(seat);
   });
 
-  // Bid console
+  // Bid console — only show if it's truly our turn and we haven't already acted
   const console_=document.getElementById('bidConsole');
-  if(isMyTurn && !state.finished && !state.isSpectator){
+  if(isMyTurn && !state.finished && !state.isSpectator && !hasPendingAction){
     console_.style.display='flex';
     console_.classList.remove('fade-scale');
     void console_.offsetWidth;
@@ -1121,14 +1124,20 @@ function renderGame(state){
 
 // ── Actions ──
 async function doBid(amount){
+  if(hasPendingAction) return;
+  hasPendingAction=true;
   document.getElementById('bidConsole').style.display='none';
   stopTimerBar();
   await api('/bid',{roomCode,playerId,amount});
+  hasPendingAction=false;
 }
 async function doPass(){
+  if(hasPendingAction) return;
+  hasPendingAction=true;
   document.getElementById('bidConsole').style.display='none';
   stopTimerBar();
   await api('/pass',{roomCode,playerId});
+  hasPendingAction=false;
 }
 
 // ── Income Phase Animation ──

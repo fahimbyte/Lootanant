@@ -31,6 +31,9 @@ public class GameRoom {
     private boolean waitingForTaxConfirmation = false;
     private Set<String> taxConfirmedPlayerIds = new HashSet<>();
 
+    // Activity tracking for room cleanup
+    private long lastActivityTime = System.currentTimeMillis();
+
     public GameRoom(String roomCode, String hostId) {
         this.roomCode = roomCode;
         this.hostId = hostId;
@@ -90,4 +93,6 @@ public class GameRoom {
     public void setWaitingForTaxConfirmation(boolean waitingForTaxConfirmation) { this.waitingForTaxConfirmation = waitingForTaxConfirmation; }
     public Set<String> getTaxConfirmedPlayerIds() { return taxConfirmedPlayerIds; }
     public void setTaxConfirmedPlayerIds(Set<String> taxConfirmedPlayerIds) { this.taxConfirmedPlayerIds = taxConfirmedPlayerIds; }
+    public long getLastActivityTime() { return lastActivityTime; }
+    public void touchActivity() { this.lastActivityTime = System.currentTimeMillis(); }
 }
